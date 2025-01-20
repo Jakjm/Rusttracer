@@ -10,6 +10,7 @@ use crate::matrix::Vector4;
 use crate::matrix::Matrix4;
 use crate::elements::Sphere;
 use crate::elements::Light;
+use crate::elements::Color;
 pub struct RenderData{
     near: f64,
     left: f64,
@@ -20,12 +21,8 @@ pub struct RenderData{
     height: u32,
     spheres: Vec<Sphere>,
     lights: Vec<Light>,
-    back_red: f64,
-    back_green: f64,
-    back_blue: f64,
-    amb_red_intensity: f64,
-    amb_green_intensity: f64,
-    amb_blue_intensity: f64,
+    back_color: Color,
+    amb_color: Color,
     output_file: String,
 }
 
@@ -42,8 +39,8 @@ impl RenderData{
         let mut near = 1.0;
         let (mut left, mut right, mut bottom, mut top) : (f64, f64, f64, f64) = (-1.0, 1.0, -1.0, 1.0);
         let (mut width, mut height): (u32, u32) = (800, 600); 
-        let (mut back_red, mut back_green, mut back_blue) : (f64, f64, f64) = (0.0, 0.0, 0.0);
-        let (mut amb_red_intensity, mut amb_green_intensity, mut amb_blue_intensity) : (f64, f64, f64) = (0.0, 0.0, 0.0);
+        let mut back_color = Color::new(0.0, 0.0, 0.0);
+        let mut amb_color = Color::new(0.0, 0.0, 0.0);
         let mut output_file = "output.txt".to_string();
         for line in lines.map_while(Result::ok){
             let tokens: Vec<&str> = line.split_whitespace().collect();
@@ -66,16 +63,8 @@ impl RenderData{
                 "BOTTOM" => bottom = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "LEFT" => left = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "RIGHT" => right = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
-                "BACK" =>{
-                    back_red = tokens[1].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-                    back_green = tokens[2].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-                    back_blue = tokens[3].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-                }
-                "AMBIENT" => {
-                    amb_red_intensity = tokens[1].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-                    amb_green_intensity = tokens[2].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-                    amb_blue_intensity = tokens[3].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-                }
+                "BACK" => back_color = Color::from_slice(&tokens[1..4]),
+                "AMBIENT" => amb_color = Color::from_slice(&tokens[1..4]),
                 "OUTPUT" => output_file = tokens[1].to_string().trim().to_string(),
                 &_ => {
                     return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
@@ -83,10 +72,8 @@ impl RenderData{
             }
         }
 
-        //
-        return Ok(Self{near: near, left: left, right: right, bottom:bottom, top: top, width: width, 
-            height: height, spheres, lights, back_red, back_green, back_blue,
-            amb_red_intensity: amb_red_intensity, amb_green_intensity : amb_green_intensity, amb_blue_intensity : amb_blue_intensity, output_file : output_file});
+        return Ok(Self{near, left, right, bottom, top, width, height, 
+            spheres, lights, back_color, amb_color, output_file});
     }
 }
 
