@@ -6,8 +6,12 @@ use std::path::Path;
 mod matrix;
 use crate::matrix::Vector4;
 use crate::matrix::Matrix4;
-mod shape;
-use crate::shape::Sphere;
+mod elements;
+use crate::elements::Sphere;
+
+mod renderdata;
+use crate::renderdata::RenderData;
+
 
 fn test(){
     let pt = Vector4::point(3.0,5.0,5.0);
@@ -28,13 +32,14 @@ fn main() -> std::io::Result<()> {
         println!("Input file not found!");
     }
     else{
-        let path = Path::new(&args[1]);
-        let file = File::open(&path)?;
-        let mut reader = BufReader::new(file);
-        let lines = (&mut reader).lines();
-        for line in lines.map_while(Result::ok){
-            println!("{}", Sphere::readFromString(line));
+        let data = RenderData::read_from_file(&args[1]);
+        if let Ok(file_data) = &data {
+            println!("{}", file_data);
         }
+        else if let Err(error) = &data{
+            println!("{error}");
+        }
+        
     }
     Ok(())
 }

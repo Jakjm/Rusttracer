@@ -40,11 +40,11 @@ impl ops::Mul<&Matrix4> for &Matrix4{
     fn mul(self, rhs:&Matrix4) -> Matrix4{
         let mut prod = [0.0;16];
         for row in 0..4 {
-            let rowStart = row * 4;
+            let row_start = row * 4;
             for col in 0..4{
                 let mut sum = 0.0;
                 for i in 0..4{
-                    sum += self.m[rowStart + i]  * rhs.m[col + 4*i];
+                    sum += self.m[row_start + i]  * rhs.m[col + 4*i];
                 }
                 prod[row * 4 + col] = sum;
             }
@@ -58,9 +58,9 @@ impl ops::Mul<&Vector4> for &Matrix4{
     fn mul(self, rhs: &Vector4) -> Vector4 {
         let mut vec = [0.0;4];
         for row in 0..4 {
-            let rowStart = row * 4;
+            let row_start = row * 4;
             for col in 0..4{
-                vec[row] += rhs.arr[col] * self.m[rowStart + col];
+                vec[row] += rhs.arr[col] * self.m[row_start + col];
             }
         }
         return Vector4::raw(vec);
@@ -70,8 +70,8 @@ impl ops::Mul<&Vector4> for &Matrix4{
 impl fmt::Display for Matrix4{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for i in 0..=3 {
-            let rowStart = i*4;
-            write!(f, "|{},{},{},{}|\n",self.m[rowStart + 0],self.m[rowStart + 1], self.m[rowStart + 2], self.m[rowStart + 3])?
+            let row_start = i*4;
+            write!(f, "|{},{},{},{}|\n",self.m[row_start + 0],self.m[row_start + 1], self.m[row_start + 2], self.m[row_start + 3])?
         }
         return Ok(());
     }

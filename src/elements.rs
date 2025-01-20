@@ -3,6 +3,18 @@ use std::io;
 //mod matrix;
 use crate::matrix::Vector4;
 use crate::matrix::Matrix4;
+pub struct Light{
+    pos: Vector4,
+}
+impl Light{
+    pub fn read_from_tokens(tokens: &Vec<&str>) -> Self{
+        let x = tokens[2].to_string().trim().parse::<f64>().expect("Please enter a float.");
+        let y = tokens[3].to_string().trim().parse::<f64>().expect("Please enter a float.");
+        let z = tokens[4].to_string().trim().parse::<f64>().expect("Please enter a float.");
+        return Self{pos: Vector4::point(x,y,z)};
+    }
+}
+
 pub struct Sphere{
     pos: Vector4,
     color: u32,
@@ -13,8 +25,8 @@ pub struct Sphere{
     bright: f64,
 }
 impl Sphere{
-    pub fn readFromString(input: String) -> Self{
-        let tokens: Vec<&str> = input.split_whitespace().collect();
+    pub fn read_from_tokens(tokens: &Vec<&str>) -> Self{
+        
         let x = tokens[2].to_string().trim().parse::<f64>().expect("Please enter a float.");
         let y = tokens[3].to_string().trim().parse::<f64>().expect("Please enter a float.");
         let z = tokens[4].to_string().trim().parse::<f64>().expect("Please enter a float.");
@@ -27,3 +39,4 @@ impl fmt::Display for Sphere{
         return write!(f, "Sphere located at {}", self.pos);
     }
 }
+
