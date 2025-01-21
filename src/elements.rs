@@ -22,15 +22,31 @@ impl Color{
     }
 }
 
+impl fmt::Display for Color{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        //return 
+        return write!(f, "(R:{} G:{} B:{})", self.red, self.green, self.blue);
+    }
+}
+
 pub struct Light{
     pos: Vector4,
+    color: Color,
 }
 impl Light{
     pub fn read_from_tokens(tokens: &Vec<&str>) -> Self{
         let x = tokens[2].to_string().trim().parse::<f64>().expect("Please enter a float.");
         let y = tokens[3].to_string().trim().parse::<f64>().expect("Please enter a float.");
         let z = tokens[4].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        return Self{pos: Vector4::point(x,y,z)};
+
+        let color = Color::from_slice(&tokens[5..8]);
+        return Self{pos: Vector4::point(x,y,z), color};
+    }
+}
+
+impl fmt::Display for Light{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        return write!(f, "\tLight with color {} located at {}.\n", self.color, self.pos);
     }
 }
 
@@ -62,14 +78,20 @@ impl Sphere{
         
         let color = Color::from_slice(&tokens[8..11]);
 
-        return Self{pos: Vector4::point(x,y,z), scale: Vector4::vec(scale_x, scale_y, scale_y), matrix,
-            color, amb: 0.0, diff: 0.0, spec: 0.0, refl: 0.0, bright: 1.0};
+        let amb = tokens[11].to_string().trim().parse::<f64>().expect("Please enter a float.");
+        let diff = tokens[12].to_string().trim().parse::<f64>().expect("Please enter a float.");
+        let spec = tokens[13].to_string().trim().parse::<f64>().expect("Please enter a float.");
+        let refl = tokens[14].to_string().trim().parse::<f64>().expect("Please enter a float.");
+        let bright = tokens[15].to_string().trim().parse::<f64>().expect("Please enter a float.");
+
+        return Self{pos: Vector4::point(x,y,z), scale: Vector4::vec(scale_x, scale_y, scale_z), matrix,
+            color, amb, diff, spec, refl, bright};
     }
 }
 impl fmt::Display for Sphere{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        //return 
-        return write!(f, "Sphere located at {}", self.pos);
+        write!(f, "\tSphere with scale {} and color {} located at {}.\n", self.scale, self.color, self.pos)?;
+        return write!(f, "Lighting coefficients: amb:{} diff:{} spec:{} refl:{} bright:{}.", self.amb, self.diff, self.spec, self.refl, self.bright);
     }
 }
 

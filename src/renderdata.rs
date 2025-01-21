@@ -82,10 +82,16 @@ impl fmt::Display for RenderData{
         //return 
         write!(f, "Scene Resolution: {}x{} pixels\n", self.width, self.height)?;
         write!(f, "Shapes:\n")?;
-        for sp in self.spheres.iter() {
-            write!(f, "{sp}\n")?;
+        for sphere in self.spheres.iter() {
+            write!(f, "{sphere}\n")?;
         }
-        write!(f, "Near plane: {}, X range: {{{},{}}} Y range: {{{},{}}}", self.near, self.left, self.right, self.bottom, self.top)?;
+        write!(f, "Lights:\n")?;
+        for light in self.lights.iter(){
+            write!(f, "{light}\n")?;
+        }
+        write!(f, "Near plane: {}, Horizontal range: {{{},{}}} Vertical range: {{{},{}}}\n", self.near, self.left, self.right, self.bottom, self.top)?;
+        write!(f, "Back colour: {}, Ambient colour:{}\n", self.back_color, self.amb_color)?;
+        write!(f, "Output filename: {}", self.output_file)?;
         return Ok(());
     }
 }
