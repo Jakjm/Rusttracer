@@ -39,7 +39,6 @@ fn main() -> std::io::Result<()> {
         else if let Err(error) = &data{
             println!("{error}");
         }
-        
     }
     Ok(())
 }

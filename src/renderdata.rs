@@ -79,19 +79,18 @@ impl RenderData{
 
 impl fmt::Display for RenderData{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        //return 
         write!(f, "Scene Resolution: {}x{} pixels\n", self.width, self.height)?;
-        write!(f, "Shapes:\n")?;
-        for sphere in self.spheres.iter() {
-            write!(f, "{sphere}\n")?;
-        }
-        write!(f, "Lights:\n")?;
-        for light in self.lights.iter(){
-            write!(f, "{light}\n")?;
-        }
         write!(f, "Near plane: {}, Horizontal range: {{{},{}}} Vertical range: {{{},{}}}\n", self.near, self.left, self.right, self.bottom, self.top)?;
         write!(f, "Back colour: {}, Ambient colour:{}\n", self.back_color, self.amb_color)?;
-        write!(f, "Output filename: {}", self.output_file)?;
+        write!(f, "\nShapes:\n")?;
+        for sphere in self.spheres.iter() {
+            write!(f, "\t-{sphere}\n")?;
+        }
+        write!(f, "\nLights:\n")?;
+        for light in self.lights.iter(){
+            write!(f, "\t-{light}\n")?;
+        }
+        write!(f, "\nOutput filename: {}", self.output_file)?;
         return Ok(());
     }
 }

@@ -46,7 +46,7 @@ impl Light{
 
 impl fmt::Display for Light{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        return write!(f, "\tLight with color {} located at {}.\n", self.color, self.pos);
+        return write!(f, "Light with color {} located at {}.", self.color, self.pos);
     }
 }
 
@@ -90,7 +90,7 @@ impl Sphere{
 }
 impl fmt::Display for Sphere{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "\tSphere with scale {} and color {} located at {}.\n", self.scale, self.color, self.pos)?;
+        write!(f, "Sphere with scale {} and color {} located at {}.\n", self.scale, self.color, self.pos)?;
         return write!(f, "Lighting coefficients: amb:{} diff:{} spec:{} refl:{} bright:{}.", self.amb, self.diff, self.spec, self.refl, self.bright);
     }
 }
