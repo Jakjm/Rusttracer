@@ -35,6 +35,7 @@ fn main() -> std::io::Result<()> {
         let data = RenderData::read_from_file(&args[1]);
         if let Ok(file_data) = &data {
             println!("{}", file_data);
+            file_data.save_image();
         }
         else if let Err(error) = &data{
             println!("{error}");

@@ -3,7 +3,7 @@ use std::fmt;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 use crate::matrix::Vector4;
@@ -23,18 +23,58 @@ pub struct RenderData{
     lights: Vec<Light>,
     back_color: Color,
     amb_color: Color,
+    array: Vec<Color>,
     output_file: String,
 }
 
 impl RenderData{
+
+    pub fn save_image(&self) -> std::io::Result<()>{
+        let capacity = (3 * self.width * self.height) as usize;
+        let mut raw_pixels = Vec::<u8>::with_capacity(capacity);
+        for pixel in self.array.iter(){
+            let (red, green, blue) = pixel.to_rgb();
+            raw_pixels.push(red);
+            raw_pixels.push(green);
+            raw_pixels.push(blue);
+        }
+
+        let path = Path::new(&self.output_file);
+        let mut file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        let opening_string = format!("P6\n{} {}\n{}\n", self.width, self.height, 255);
+        writer.write_all(opening_string.as_bytes())?; 
+        writer.write_all(&raw_pixels);
+
+        Ok(())
+    }
+    // void save_image(int Width, int Height, char* fname,char* pixels,long *saveTime) {
+    //     FILE *fp;
+    //     const int maxVal=255;
+    //     clock_t endTime, startTime = clock();
+    
+    //     if(verbose)printf("Saving image %s: %d x %d\n", fname,Width,Height);
+    //     fp = fopen(fname,"wb");
+    //     if(!fp){
+    //         printf("Unable to open file '%s'\n",fname);
+    //         return;
+    //     }
+    //     fprintf(fp, "P6\n%d %d\n%d\n",Width,Height,maxVal);
+    //     fwrite(pixels,3,Width*Height,fp);
+    //     fclose(fp);
+        
+    //     endTime = clock();
+    //     *saveTime = (endTime - startTime);
+    // }
+    //TODO need to handle for errors!
     pub fn read_from_file(filename: &String) -> Result<Self, io::Error>{
         let path = Path::new(&filename);
         let file = File::open(&path)?;
         let mut reader = BufReader::new(file);
         let lines = (&mut reader).lines();
         
-        let mut spheres = Vec::new();
-        let mut lights = Vec::new();
+        let mut spheres = Vec::<Sphere>::new();
+        let mut lights = Vec::<Light>::new();
 
         let mut near = 1.0;
         let (mut left, mut right, mut bottom, mut top) : (f64, f64, f64, f64) = (-1.0, 1.0, -1.0, 1.0);
@@ -47,11 +87,11 @@ impl RenderData{
             let first_token = tokens[0];
             match first_token {
                 "SPHERE" => {
-                    let new_sphere = Sphere::read_from_tokens(&tokens);
+                    let new_sphere = Sphere::read_from_tokens(&tokens); //TODO error handling
                     spheres.push(new_sphere);
                 },
                 "LIGHT" => {
-                    let light = Light::read_from_tokens(&tokens);
+                    let light = Light::read_from_tokens(&tokens); //TODO error handling
                     lights.push(light);
                 },
                 "RES" => {
@@ -71,9 +111,11 @@ impl RenderData{
                 }
             }
         }
-
+        //TODO error handling....
+        let capacity = (width * height) as usize;
+        let array : Vec<Color> = vec![back_color.clone(); capacity];
         return Ok(Self{near, left, right, bottom, top, width, height, 
-            spheres, lights, back_color, amb_color, output_file});
+            spheres, lights, back_color, amb_color, array, output_file});
     }
 }
 

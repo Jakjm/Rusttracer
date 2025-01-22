@@ -10,7 +10,15 @@ pub struct Color{
     blue: f64,
 }
 
+impl Clone for Color{
+    fn clone(&self) -> Self{
+        return Self{red: self.red, green : self.green, blue: self.blue};
+    }
+}
 impl Color{
+    pub fn to_rgb(&self) -> (u8, u8, u8){
+        return ((255.0 * self.red) as u8, (255.0 * self.green) as u8, (255.0 * self.blue) as u8);
+    }
     pub fn new(red: f64, green: f64, blue: f64) -> Self{
         return Self{red, green, blue};
     }
