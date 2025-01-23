@@ -61,7 +61,7 @@ impl fmt::Display for Light{
 pub struct Sphere{
     pos: Vector4,
     scale: Vector4,
-    matrix: Matrix4,
+    pub matrix: Matrix4,
     color: Color,
     amb: f64,
     diff: f64,
@@ -81,8 +81,9 @@ impl Sphere{
         let scale_z = tokens[7].to_string().trim().parse::<f64>().expect("Please enter a float.");
 
         let trans_matrix = Matrix4::trans(x,y,z);
-        let scale_matrix = Matrix4::scale(x,y,z);
+        let scale_matrix = Matrix4::scale(scale_x,scale_y,scale_z);
         let matrix = &trans_matrix * &scale_matrix;
+        let matrix = matrix.inverse();
         
         let color = Color::from_slice(&tokens[8..11]);
 

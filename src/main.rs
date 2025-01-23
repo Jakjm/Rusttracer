@@ -40,9 +40,10 @@ fn main() -> std::io::Result<()> {
         test();
     }
     else{
-        let data = RenderData::read_from_file(&args[1]);
-        if let Ok(file_data) = &data {
+        let mut data = RenderData::read_from_file(&args[1]);
+        if let Ok(file_data) = &mut data {
             println!("{}", file_data);
+            file_data.render();
             file_data.save_image();
         }
         else if let Err(error) = &data{

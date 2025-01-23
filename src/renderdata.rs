@@ -49,23 +49,44 @@ impl RenderData{
         Ok(())
     }
 
-    pub fn check_collision(&self, vec: &Vector4) -> Option<&Sphere> {
+    pub fn check_collision(&self, vec: &Vector4, pt: &Vector4, min: f64) -> Option<(&Sphere,f64)> {
+        let mut s : Option<(&Sphere,f64)> = None;
         for sphere in self.spheres.iter(){
+            let vec_prime = &sphere.matrix * vec;
+            let pt_prime = &sphere.matrix * pt;
+            let a = vec_prime.dot(&vec_prime);
+            let b = pt_prime.dot(&vec_prime);
+            let c = pt_prime.dot(&pt_prime) - 1.0;
 
+            let det = b * b - a * c;
+            if det >= 0.0{
+                let sqrt_det = det.sqrt();
+                let tOne = (-b - sqrt_det) / a;
+                if tOne > min{
+                    s = Some((sphere,tOne));
+                }
+                else{
+                    let tTwo = (-b + sqrt_det) / a;
+                    if tTwo > min{
+                        s = Some((sphere,tTwo));
+                    }
+                }
+            }
         }
-        return None
+        return s;
     }
-    pub fn render(&self){
+    pub fn render(&mut self){
 
         let eye = Vector4::point(0.0,0.0,0.0);
         
-        for px_x in 0..self.width{
-            for px_y in 0..self.height{
+        for px_y in 0..self.height{
+            for px_x in 0..self.width{
                 let x : f64 = self.left + (self.right - self.left) * (px_x as f64 / self.width as f64);
-                let y : f64 = self.bottom + (self.top - self.bottom) * (px_y as f64 / self.height as f64);
-                let ray = Vector4::vec(x,y, self.near);
-
-
+                let y : f64 = self.top - (self.top - self.bottom) * (px_y as f64 / self.height as f64);
+                let ray = Vector4::vec(x,y, -self.near);
+                if let Some((sphere,t)) = self.check_collision(&ray, &eye, 1.0){
+                    self.array[(px_y * self.height + px_x) as usize] = Color::new(0.0,0.0,0.0);
+                }
             }
         }
 
