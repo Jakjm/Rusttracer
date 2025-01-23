@@ -33,6 +33,37 @@ impl Matrix4{
         matrix.m[15] = 1.0;
         return matrix;
     }
+
+    pub fn inverse(&self) -> Self{
+        let mut inverse = Self::scale(1.0, 1.0, 1.0);
+        let mut clone = self.clone();
+
+        for row in 0..4{
+            let coeff = 1.0 / clone.m[row * 4 + row];
+            for col in 0..4{
+                clone.m[row * 4 + col] *= coeff;
+                inverse.m[row * 4 + col] *= coeff;
+            }
+
+            for otherRow in 0..4{
+                if otherRow == row{
+                    continue
+                }
+                let coeff = clone.m[otherRow * 4 + row];
+                for col in 0..4{
+                    clone.m[otherRow * 4 + col] -= coeff * clone.m[row * 4 + col];
+                    inverse.m[otherRow * 4 + col] -= coeff * inverse.m[row * 4 + col];
+                }
+            }
+        }
+        return inverse;
+    }
+}
+impl Clone for Matrix4{
+    fn clone(&self) -> Self{
+        let m = self.m.clone();
+        return Self{m};
+    }
 }
 
 impl ops::Mul<&Matrix4> for &Matrix4{
@@ -71,7 +102,7 @@ impl fmt::Display for Matrix4{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for i in 0..=3 {
             let row_start = i*4;
-            write!(f, "|{},{},{},{}|\n",self.m[row_start + 0],self.m[row_start + 1], self.m[row_start + 2], self.m[row_start + 3])?
+            write!(f, "|{:.3},{:.3},{:.3},{:.3}|\n",self.m[row_start + 0],self.m[row_start + 1], self.m[row_start + 2], self.m[row_start + 3])?
         }
         return Ok(());
     }
@@ -81,6 +112,18 @@ pub struct Vector4{
     arr: [f64; 4],
 }
 impl Vector4{
+    pub fn x(&self) -> f64{
+        return self.arr[0];
+    }
+    pub fn y(&self) -> f64{
+        return self.arr[1];
+    }
+    pub fn z(&self) -> f64{
+        return self.arr[2];
+    }
+    pub fn dot(&self, other: &Vector4) -> f64{
+        return self.x() * other.x() + self.y() * other.y() + self.z() * other.z();
+    }
     pub fn raw(arr: [f64;4]) ->Self{
         return Self{arr};
     }
@@ -96,6 +139,6 @@ impl Vector4{
 }
 impl fmt::Display for Vector4{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        return write!(f, "({},{},{},{})", self.arr[0], self.arr[1], self.arr[2], self.arr[3]);
+        return write!(f, "({:.3},{:.3},{:.3},{:.3})", self.arr[0], self.arr[1], self.arr[2], self.arr[3]);
     }
 }

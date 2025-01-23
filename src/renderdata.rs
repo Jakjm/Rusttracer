@@ -48,25 +48,28 @@ impl RenderData{
 
         Ok(())
     }
-    // void save_image(int Width, int Height, char* fname,char* pixels,long *saveTime) {
-    //     FILE *fp;
-    //     const int maxVal=255;
-    //     clock_t endTime, startTime = clock();
-    
-    //     if(verbose)printf("Saving image %s: %d x %d\n", fname,Width,Height);
-    //     fp = fopen(fname,"wb");
-    //     if(!fp){
-    //         printf("Unable to open file '%s'\n",fname);
-    //         return;
-    //     }
-    //     fprintf(fp, "P6\n%d %d\n%d\n",Width,Height,maxVal);
-    //     fwrite(pixels,3,Width*Height,fp);
-    //     fclose(fp);
+
+    pub fn check_collision(&self, vec: &Vector4) -> Option<&Sphere> {
+        for sphere in self.spheres.iter(){
+
+        }
+        return None
+    }
+    pub fn render(&self){
+
+        let eye = Vector4::point(0.0,0.0,0.0);
         
-    //     endTime = clock();
-    //     *saveTime = (endTime - startTime);
-    // }
-    //TODO need to handle for errors!
+        for px_x in 0..self.width{
+            for px_y in 0..self.height{
+                let x : f64 = self.left + (self.right - self.left) * (px_x as f64 / self.width as f64);
+                let y : f64 = self.bottom + (self.top - self.bottom) * (px_y as f64 / self.height as f64);
+                let ray = Vector4::vec(x,y, self.near);
+
+
+            }
+        }
+
+    }
     pub fn read_from_file(filename: &String) -> Result<Self, io::Error>{
         let path = Path::new(&filename);
         let file = File::open(&path)?;
