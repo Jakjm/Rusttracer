@@ -26,9 +26,10 @@ fn test(){
     println!("Product:\n{}", product);
 
     let inverse = product.inverse();
-
-
     println!("Inverse:\n{}", inverse);
+
+    let trans = inverse.transpose();
+    println!("Transpose:\n{}", trans);
 }
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();

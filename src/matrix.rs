@@ -34,6 +34,16 @@ impl Matrix4{
         return matrix;
     }
 
+    pub fn transpose(&self) -> Self{
+        let mut arr: [f64; 16] = [0.0; 16];
+        for row in 0..4{
+            for col in 0..4{
+                arr[row * 4 + col] = self.m[row + col * 4];
+            }
+        }
+        return Self::raw(arr);
+    }
+
     pub fn inverse(&self) -> Self{
         let mut inverse = Self::scale(1.0, 1.0, 1.0);
         let mut clone = self.clone();
@@ -102,7 +112,7 @@ impl fmt::Display for Matrix4{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for i in 0..=3 {
             let row_start = i*4;
-            write!(f, "|{:.3},{:.3},{:.3},{:.3}|\n",self.m[row_start + 0],self.m[row_start + 1], self.m[row_start + 2], self.m[row_start + 3])?
+            write!(f, "|{:6.3},{:6.3},{:6.3},{:6.3}|\n",self.m[row_start + 0],self.m[row_start + 1], self.m[row_start + 2], self.m[row_start + 3])?
         }
         return Ok(());
     }
