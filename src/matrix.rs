@@ -161,6 +161,16 @@ impl ops::SubAssign<&Vector4> for Vector4{
         }
     }
 }
+impl ops::Add<&Vector4> for &Vector4{
+    type Output = Vector4;
+    fn add(self, rhs: &Vector4) -> Vector4{
+        let mut new: Vector4 = self.clone(); 
+        for i in 0..4{
+            new.arr[i] += rhs.arr[i];
+        }
+        return new;
+    }
+}
 impl ops::AddAssign<&Vector4> for Vector4{
     fn add_assign(&mut self, rhs: &Vector4){
         for i in 0..4{

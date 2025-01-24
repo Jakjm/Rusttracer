@@ -62,7 +62,7 @@ pub struct Sphere{
     pos: Vector4,
     scale: Vector4,
     pub matrix: Matrix4,
-    color: Color,
+    pub color: Color,
     amb: f64,
     diff: f64,
     spec: f64,

@@ -75,18 +75,27 @@ impl RenderData{
         }
         return s;
     }
+    pub fn traceray(&mut self, origin :&Vector4, ray: &mut Vector4, min_t:f64, bounceCt : i32) -> Color{
+        let mut color = self.back_color.clone();
+        if let Some((sphere,t)) = self.check_collision(&origin, &ray, min_t){
+            *ray *= t;
+            let mut colPt = origin.clone();
+            colPt += &ray;
+            color = Color::new(0.0,0.0,1.0);
+            println!("collision!");
+        }
+        return color;
+    }
     pub fn render(&mut self){
-
         let eye = Vector4::point(0.0,0.0,0.0);
-        
         for px_y in 0..self.height{
             for px_x in 0..self.width{
                 let x : f64 = self.left + (self.right - self.left) * (px_x as f64 / self.width as f64);
                 let y : f64 = self.top - (self.top - self.bottom) * (px_y as f64 / self.height as f64);
-                let ray = Vector4::vec(x,y, -self.near);
-                if let Some((sphere,t)) = self.check_collision(&ray, &eye, 1.0){
-                    self.array[(px_y * self.height + px_x) as usize] = Color::new(0.0,0.0,0.0);
-                }
+
+                let mut ray = Vector4::vec(x,y, -self.near);
+                let color = self.traceray(&eye, &mut ray, 1.0, 3);
+                self.array[(px_y * self.height + px_x) as usize] = color;
             }
         }
 
