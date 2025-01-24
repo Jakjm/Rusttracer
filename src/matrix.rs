@@ -147,6 +147,34 @@ impl Vector4{
         return Self{arr:[x,y,z,0.0]};
     }
 }
+impl Clone for Vector4{
+    fn clone(&self) -> Self{
+        let arr = self.arr.clone();
+        return Self{arr};
+    }
+}
+
+impl ops::SubAssign<&Vector4> for Vector4{
+    fn sub_assign(&mut self, rhs: &Vector4){
+        for i in 0..4{
+            self.arr[i] -= rhs.arr[i];
+        }
+    }
+}
+impl ops::AddAssign<&Vector4> for Vector4{
+    fn add_assign(&mut self, rhs: &Vector4){
+        for i in 0..4{
+            self.arr[i] += rhs.arr[i];
+        }
+    }
+}
+impl ops::MulAssign<f64> for Vector4{
+    fn mul_assign(&mut self, rhs: f64){
+        for i in 0..4{
+            self.arr[i] *= rhs;
+        }
+    }
+}
 impl fmt::Display for Vector4{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         return write!(f, "({:.3},{:.3},{:.3},{:.3})", self.arr[0], self.arr[1], self.arr[2], self.arr[3]);
