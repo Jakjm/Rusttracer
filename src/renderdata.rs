@@ -10,7 +10,6 @@ use crate::matrix::Vector4;
 use crate::matrix::Matrix4;
 use crate::elements::Sphere;
 use crate::elements::Light;
-use crate::elements::Color;
 pub struct RenderData{
     near: f64,
     left: f64,
@@ -21,9 +20,9 @@ pub struct RenderData{
     height: u32,
     spheres: Vec<Sphere>,
     lights: Vec<Light>,
-    back_color: Color,
-    amb_color: Color,
-    array: Vec<Color>,
+    back_color: Vector4,
+    amb_color: Vector4,
+    array: Vec<Vector4>,
     output_file: String,
 }
 
@@ -49,40 +48,115 @@ impl RenderData{
         Ok(())
     }
 
-    pub fn check_collision(&self, vec: &Vector4, pt: &Vector4, min: f64) -> Option<(&Sphere,f64)> {
+    pub fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64) -> Option<(&Sphere,f64)> {
+        let mut lowest = std::f64::INFINITY;
         let mut s : Option<(&Sphere,f64)> = None;
         for sphere in self.spheres.iter(){
-            let vec_prime = &sphere.matrix * vec;
-            let pt_prime = &sphere.matrix * pt;
-            let a = vec_prime.dot(&vec_prime);
-            let b = pt_prime.dot(&vec_prime);
-            let c = pt_prime.dot(&pt_prime) - 1.0;
+            let origin_prime = &sphere.inv_matrix * origin;
+            let ray_prime = &sphere.inv_matrix * ray;
+            
+            let a = ray_prime.dot(&ray_prime);
+            let b = origin_prime.dot(&ray_prime);
+            let c = origin_prime.dot(&origin_prime) - 1.0;
 
             let det = b * b - a * c;
             if det >= 0.0{
                 let sqrt_det = det.sqrt();
-                let tOne = (-b - sqrt_det) / a;
-                if tOne > min{
-                    s = Some((sphere,tOne));
+                let mut t = (-b - sqrt_det) / a;
+                //Ray missed the front of the sphere.
+                //Try for a collision for the back of the sphere.
+                if t < min { 
+                    t = (-b + sqrt_det) / a;
                 }
-                else{
-                    let tTwo = (-b + sqrt_det) / a;
-                    if tTwo > min{
-                        s = Some((sphere,tTwo));
-                    }
+
+                if t > min && t < lowest{
+                    s = Some((sphere,t));
+                    lowest = t;
                 }
             }
         }
         return s;
     }
-    pub fn traceray(&mut self, origin :&Vector4, ray: &mut Vector4, min_t:f64, bounceCt : i32) -> Color{
+
+    pub fn computeLightColor(&self, col_pt: &Vector4, ray: &Vector4, normal: &Vector4, sphere: &Sphere) -> Vector4{
+        let mut color = Vector4::zero();
+        let normal_len_sq = normal.dot(normal);
+        let normal_len = normal_len_sq.sqrt();
+        for light in self.lights.iter(){
+            let mut shadow_ray = light.pos.clone();
+            shadow_ray -= col_pt;
+
+            let mut dot = normal.dot(&shadow_ray);
+            if dot < 0.0 {
+                continue;
+            }
+            let mut result = self.check_collision(col_pt, &shadow_ray, 0.000001);
+            if let Some((dummy,t)) = result{
+                if t > 1.0{ //If there is a collision that occurs after the light, we don't care...
+                    result = None;
+                }
+            }
+            if result.is_none() {
+                dot /= shadow_ray.dot(&shadow_ray).sqrt();
+                dot /= normal_len;
+
+                let mut diff = light.intensity.clone();
+                diff *= dot;
+                diff *= sphere.diff;
+                diff *= &sphere.color;
+
+                color += &diff; //Computed and added diffuse light
+
+                shadow_ray *= -1.0;
+                let dot = 2.0 * shadow_ray.dot(normal) / normal_len_sq;
+                let mut bounce = normal.clone();
+                bounce *= dot;
+
+                let ref_ray = shadow_ray.clone(); //Calculating reflection of shadow ray about the normal of sphere.
+                shadow_ray -= &bounce;
+                
+                let mut shininess = ray.dot(&ref_ray);
+                if shininess > 0.0 && sphere.spec > 0.0{
+                    shininess /= ray.dot(ray).sqrt();
+                    shininess /= ref_ray.dot(&ref_ray).sqrt();
+
+                    let mut spec = light.intensity.clone();
+                    spec *= shininess;
+                    spec *= sphere.spec;
+                    color += &spec;
+                }
+            }
+        }
+        return color;
+    }
+    pub fn traceray(&self, origin :&Vector4, ray: &mut Vector4, min_t:f64, bounceCt : i32) -> Vector4{
         let mut color = self.back_color.clone();
         if let Some((sphere,t)) = self.check_collision(&origin, &ray, min_t){
+            let mut col_pt = origin.clone();
             *ray *= t;
-            let mut colPt = origin.clone();
-            colPt += &ray;
-            color = Color::new(0.0,0.0,1.0);
-            println!("collision!");
+            col_pt += &ray;
+
+            let origin_prime = &sphere.inv_matrix * origin;
+            let mut ray_prime = &sphere.inv_matrix * (&*ray);
+            ray_prime *= t;
+
+            let mut col_pt_prime = origin_prime.clone();
+            col_pt_prime += &ray_prime;
+            if ray_prime.dot(&ray_prime) > origin_prime.dot(&origin_prime) {
+                col_pt_prime *= -1.0;
+            }
+            col_pt_prime.force_vec();
+            let mut normal =  &sphere.inv_transp * &col_pt_prime;
+            normal.force_vec();
+            //println!("{}", normal);
+
+            color = Vector4::vec(sphere.amb, sphere.amb, sphere.amb);
+            color *= &self.amb_color;
+            color *= &sphere.color;
+
+            let light_color = self.computeLightColor(&col_pt, &ray, &normal, sphere);
+            color += &light_color;
+
         }
         return color;
     }
@@ -95,6 +169,7 @@ impl RenderData{
 
                 let mut ray = Vector4::vec(x,y, -self.near);
                 let color = self.traceray(&eye, &mut ray, 1.0, 3);
+
                 self.array[(px_y * self.height + px_x) as usize] = color;
             }
         }
@@ -112,8 +187,8 @@ impl RenderData{
         let mut near = 1.0;
         let (mut left, mut right, mut bottom, mut top) : (f64, f64, f64, f64) = (-1.0, 1.0, -1.0, 1.0);
         let (mut width, mut height): (u32, u32) = (800, 600); 
-        let mut back_color = Color::new(0.0, 0.0, 0.0);
-        let mut amb_color = Color::new(0.0, 0.0, 0.0);
+        let mut back_color = Vector4::zero();
+        let mut amb_color = Vector4::zero();
         let mut output_file = "output.txt".to_string();
         for line in lines.map_while(Result::ok){
             let tokens: Vec<&str> = line.split_whitespace().collect();
@@ -136,8 +211,8 @@ impl RenderData{
                 "BOTTOM" => bottom = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "LEFT" => left = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "RIGHT" => right = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
-                "BACK" => back_color = Color::from_slice(&tokens[1..4]),
-                "AMBIENT" => amb_color = Color::from_slice(&tokens[1..4]),
+                "BACK" => back_color = Vector4::from_slice(&tokens[1..4]),
+                "AMBIENT" => amb_color = Vector4::from_slice(&tokens[1..4]),
                 "OUTPUT" => output_file = tokens[1].to_string().trim().to_string(),
                 &_ => {
                     return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
@@ -146,7 +221,7 @@ impl RenderData{
         }
         //TODO error handling....
         let capacity = (width * height) as usize;
-        let array : Vec<Color> = vec![back_color.clone(); capacity];
+        let array : Vec<Vector4> = vec![back_color.clone(); capacity];
         return Ok(Self{near, left, right, bottom, top, width, height, 
             spheres, lights, back_color, amb_color, array, output_file});
     }

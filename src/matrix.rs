@@ -131,8 +131,17 @@ impl Vector4{
     pub fn z(&self) -> f64{
         return self.arr[2];
     }
+    pub fn force_vec(&mut self){
+        self.arr[3] = 0.0;
+    }
+    pub fn force_point(&mut self){
+        self.arr[3] = 1.0;
+    }
     pub fn dot(&self, other: &Vector4) -> f64{
         return self.x() * other.x() + self.y() * other.y() + self.z() * other.z();
+    }
+    pub fn zero() -> Self{
+        return Self{arr: [0.0; 4]};
     }
     pub fn raw(arr: [f64;4]) ->Self{
         return Self{arr};
@@ -146,6 +155,40 @@ impl Vector4{
     pub fn vec(x: f64, y: f64, z:f64) -> Self{
         return Self{arr:[x,y,z,0.0]};
     }
+    pub fn to_rgb(&self) -> (u8, u8, u8){
+        let mut red = self.arr[0];
+        if red < 0.0{
+            red = 0.0;
+        }
+        else if red > 1.0 {
+            red = 1.0;
+        }
+        let mut green = self.arr[1];
+        if green < 0.0{
+            green = 0.0;
+        }
+        else if green > 1.0{
+            green = 1.0;
+        }
+
+        let mut blue = self.arr[2];
+        if blue < 0.0{
+            blue = 0.0;
+        }
+        else if blue > 1.0{
+            blue = 1.0;
+        }
+        let red = (255.0 * red) as u8;
+        let green = (255.0 * green) as u8;
+        let blue = (255.0 * blue) as u8;
+        return (red, green, blue);
+    }
+    pub fn from_slice(slice: &[&str]) -> Self{
+        let red = slice[0].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
+        let green = slice[1].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
+        let blue = slice[2].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
+        return Self::vec(red, green, blue);
+    }
 }
 impl Clone for Vector4{
     fn clone(&self) -> Self{
@@ -154,13 +197,6 @@ impl Clone for Vector4{
     }
 }
 
-impl ops::SubAssign<&Vector4> for Vector4{
-    fn sub_assign(&mut self, rhs: &Vector4){
-        for i in 0..4{
-            self.arr[i] -= rhs.arr[i];
-        }
-    }
-}
 impl ops::Add<&Vector4> for &Vector4{
     type Output = Vector4;
     fn add(self, rhs: &Vector4) -> Vector4{
@@ -171,6 +207,21 @@ impl ops::Add<&Vector4> for &Vector4{
         return new;
     }
 }
+
+impl ops::MulAssign<f64> for Vector4{
+    fn mul_assign(&mut self, rhs: f64){
+        for i in 0..4{
+            self.arr[i] *= rhs;
+        }
+    }
+}
+impl ops::SubAssign<&Vector4> for Vector4{
+    fn sub_assign(&mut self, rhs: &Vector4){
+        for i in 0..4{
+            self.arr[i] -= rhs.arr[i];
+        }
+    }
+}
 impl ops::AddAssign<&Vector4> for Vector4{
     fn add_assign(&mut self, rhs: &Vector4){
         for i in 0..4{
@@ -178,10 +229,10 @@ impl ops::AddAssign<&Vector4> for Vector4{
         }
     }
 }
-impl ops::MulAssign<f64> for Vector4{
-    fn mul_assign(&mut self, rhs: f64){
+impl ops::MulAssign<&Vector4> for Vector4{
+    fn mul_assign(&mut self, rhs: &Vector4){
         for i in 0..4{
-            self.arr[i] *= rhs;
+            self.arr[i] *= rhs.arr[i];
         }
     }
 }
