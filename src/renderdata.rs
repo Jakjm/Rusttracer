@@ -90,7 +90,7 @@ impl RenderData{
             if dot < 0.0 {
                 continue;
             }
-            let mut result = self.check_collision(col_pt, &shadow_ray, 0.000001);
+            let mut result = self.check_collision(col_pt, &shadow_ray, 0.000000001);
             if let Some((dummy,t)) = result{
                 if t > 1.0{ //If there is a collision that occurs after the light, we don't care...
                     result = None;
@@ -150,12 +150,17 @@ impl RenderData{
             normal.force_vec();
             //println!("{}", normal);
 
-            color = Vector4::vec(sphere.amb, sphere.amb, sphere.amb);
-            color *= &self.amb_color;
-            color *= &sphere.color;
+            color = Vector4::zero();
+            let mut amb_color = self.amb_color.clone();
+            amb_color *= sphere.amb;
+            amb_color *= &sphere.color;
+
+            color += &amb_color;
 
             let light_color = self.computeLightColor(&col_pt, &ray, &normal, sphere);
             color += &light_color;
+
+            println!("{}", color);
 
         }
         return color;
