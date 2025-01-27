@@ -133,7 +133,7 @@ impl RenderData{
         }
         return color;
     }
-    pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounceCt : i32) -> Vector4{
+    pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounce_ct : i32) -> Vector4{
         let mut color = self.back_color.clone();
         if let Some((sphere,t)) = self.check_collision(&origin, &ray, min_t){
             let mut col_pt = ray.clone();
@@ -163,6 +163,19 @@ impl RenderData{
             let light_color = self.computeLightColor(&col_pt, &ray, &normal, sphere);
             color += &light_color;
 
+            if bounce_ct > 0 {
+                let normal_len_sq = normal.dot(&normal);
+                let dot = 2.0 * ray.dot(&normal) / normal_len_sq;
+                let mut bounce = normal.clone();
+                bounce *= dot;
+
+                let mut refl_ray = ray.clone();
+                refl_ray -= &bounce;
+
+                let mut refl_color = self.traceray(&col_pt, &refl_ray, 0.0000001, bounce_ct - 1);
+                refl_color *= sphere.refl;
+                color += &refl_color;
+            }
         }
         return color;
     }
