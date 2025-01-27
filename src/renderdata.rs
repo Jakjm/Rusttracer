@@ -80,13 +80,12 @@ impl RenderData{
 
     pub fn computeLightColor(&self, col_pt: &Vector4, ray: &Vector4, normal: &Vector4, sphere: &Sphere) -> Vector4{
         let mut color = Vector4::zero();
-        let normal_len_sq = normal.dot(normal);
-        let normal_len = normal_len_sq.sqrt();
+
         for light in self.lights.iter(){
             let mut shadow_ray = light.pos.clone();
             shadow_ray -= col_pt;
 
-            let mut dot = normal.dot(&shadow_ray);
+            let mut dot = shadow_ray.dot(normal);
             if dot < 0.0 {
                 continue;
             }
@@ -97,7 +96,11 @@ impl RenderData{
                 }
             }
             if result.is_none() {
-                dot /= shadow_ray.dot(&shadow_ray).sqrt();
+                let normal_len_sq = normal.dot(normal);
+                let normal_len = normal_len_sq.sqrt();
+                let shadow_ray_len = shadow_ray.dot(&shadow_ray).sqrt();
+
+                dot /= shadow_ray_len;
                 dot /= normal_len;
 
                 let mut diff = light.intensity.clone();
@@ -112,13 +115,14 @@ impl RenderData{
                 let mut bounce = normal.clone();
                 bounce *= dot;
 
-                let ref_ray = shadow_ray.clone(); //Calculating reflection of shadow ray about the normal of sphere.
-                shadow_ray -= &bounce;
+                let mut ref_ray = shadow_ray.clone(); //Calculating reflection of shadow ray about the normal of sphere.
+                ref_ray -= &bounce;
                 
-                let mut shininess = ray.dot(&ref_ray);
+                let mut shininess = -ray.dot(&ref_ray);
                 if shininess > 0.0 && sphere.spec > 0.0{
                     shininess /= ray.dot(ray).sqrt();
                     shininess /= ref_ray.dot(&ref_ray).sqrt();
+                    shininess = shininess.powf(sphere.bright);
 
                     let mut spec = light.intensity.clone();
                     spec *= shininess;
@@ -129,26 +133,25 @@ impl RenderData{
         }
         return color;
     }
-    pub fn traceray(&self, origin :&Vector4, ray: &mut Vector4, min_t:f64, bounceCt : i32) -> Vector4{
+    pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounceCt : i32) -> Vector4{
         let mut color = self.back_color.clone();
         if let Some((sphere,t)) = self.check_collision(&origin, &ray, min_t){
-            let mut col_pt = origin.clone();
-            *ray *= t;
-            col_pt += &ray;
+            let mut col_pt = ray.clone();
+            col_pt *= t;
+            col_pt += &origin;
 
             let origin_prime = &sphere.inv_matrix * origin;
-            let mut ray_prime = &sphere.inv_matrix * (&*ray);
-            ray_prime *= t;
-
             let mut col_pt_prime = origin_prime.clone();
+            let mut ray_prime = &sphere.inv_matrix * ray;
+            ray_prime *= t;
             col_pt_prime += &ray_prime;
+
             if ray_prime.dot(&ray_prime) > origin_prime.dot(&origin_prime) {
                 col_pt_prime *= -1.0;
             }
             col_pt_prime.force_vec();
             let mut normal =  &sphere.inv_transp * &col_pt_prime;
             normal.force_vec();
-            //println!("{}", normal);
 
             color = Vector4::zero();
             let mut amb_color = self.amb_color.clone();
@@ -160,8 +163,6 @@ impl RenderData{
             let light_color = self.computeLightColor(&col_pt, &ray, &normal, sphere);
             color += &light_color;
 
-            println!("{}", color);
-
         }
         return color;
     }
@@ -169,11 +170,11 @@ impl RenderData{
         let eye = Vector4::point(0.0,0.0,0.0);
         for px_y in 0..self.height{
             for px_x in 0..self.width{
-                let x : f64 = self.left + (self.right - self.left) * (px_x as f64 / self.width as f64);
-                let y : f64 = self.top - (self.top - self.bottom) * (px_y as f64 / self.height as f64);
+                let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + 0.5) / self.width as f64);
+                let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + 0.5) / self.height as f64);
 
-                let mut ray = Vector4::vec(x,y, -self.near);
-                let color = self.traceray(&eye, &mut ray, 1.0, 3);
+                let mut ray = Vector4::vec(x,y, -self.near); //Ray directly in the center of pixel at (x,y).
+                let color = self.traceray(&eye, &ray, 1.0000001, 3);
 
                 self.array[(px_y * self.height + px_x) as usize] = color;
             }
