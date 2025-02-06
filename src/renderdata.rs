@@ -214,12 +214,21 @@ impl RenderData{
             let first_token = tokens[0];
             match first_token {
                 "SPHERE" => {
-                    let new_sphere = Sphere::read_from_tokens(&tokens); //TODO error handling
-                    spheres.push(new_sphere);
+                    if let Some(sphere) = Sphere::read_from_tokens(&tokens){
+                        spheres.push(sphere);
+                    }
+                    else{
+                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    } 
                 },
                 "LIGHT" => {
-                    let light = Light::read_from_tokens(&tokens); //TODO error handling
-                    lights.push(light);
+                    if let Some(light) = Light::read_from_tokens(&tokens){
+                        lights.push(light);
+                    }
+                    else{
+                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    }
+                    
                 },
                 "RES" => {
                     width = tokens[1].to_string().trim().parse::<u32>().expect("Please enter an integer width.");
@@ -230,8 +239,20 @@ impl RenderData{
                 "BOTTOM" => bottom = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "LEFT" => left = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "RIGHT" => right = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
-                "BACK" => back_color = Vector4::from_slice(&tokens[1..4]),
-                "AMBIENT" => amb_color = Vector4::from_slice(&tokens[1..4]),
+                "BACK" => {
+                    let back_color_opt = Vector4::vec_from_slice(&tokens[1..4]);
+                    if back_color_opt.is_none() {
+                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    }
+                    back_color = back_color_opt.unwrap();
+                },
+                "AMBIENT" =>{
+                    let amb_color_opt = Vector4::vec_from_slice(&tokens[1..4]);
+                    if amb_color_opt.is_none(){
+                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    }
+                    amb_color = amb_color_opt.unwrap();
+                } 
                 "OUTPUT" => output_file = tokens[1].to_string().trim().to_string(),
                 &_ => {
                     return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));

@@ -183,11 +183,40 @@ impl Vector4{
         let blue = (255.0 * blue) as u8;
         return (red, green, blue);
     }
-    pub fn from_slice(slice: &[&str]) -> Self{
-        let red = slice[0].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-        let green = slice[1].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-        let blue = slice[2].to_string().trim().parse::<f64>().expect("Please enter an intensity between 0.0 and 1.0.");
-        return Self::vec(red, green, blue);
+    pub fn vec_from_slice(slice: &[&str]) -> Option<Self>{
+        if slice.len() != 3 {
+            return None;
+        }
+        let x_opt  = slice[0].to_string().trim().parse::<f64>();
+        let y_opt = slice[1].to_string().trim().parse::<f64>();
+        let z_opt  = slice[2].to_string().trim().parse::<f64>();
+        if x_opt.is_err() || y_opt.is_err() || z_opt.is_err(){
+            return None;
+        }
+        else{
+            let x = x_opt.unwrap();
+            let y = y_opt.unwrap();
+            let z = z_opt.unwrap();
+            return Some(Self::vec(x, y, z));
+        }
+    }
+    pub fn point_from_slice(slice: &[&str]) -> Option<Self>{
+        if slice.len() != 3 {
+            return None;
+        }
+        let x_opt  = slice[0].to_string().trim().parse::<f64>();
+        let y_opt = slice[1].to_string().trim().parse::<f64>();
+        let z_opt  = slice[2].to_string().trim().parse::<f64>();
+        if x_opt.is_err() || y_opt.is_err() || z_opt.is_err(){
+            return None;
+        }
+        else{
+            let x = x_opt.unwrap();
+            let y = y_opt.unwrap();
+            let z = z_opt.unwrap();
+            return Some(Self::point(x, y, z));
+        }
+        
     }
 }
 impl Clone for Vector4{

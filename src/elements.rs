@@ -9,13 +9,15 @@ pub struct Light{
     pub intensity: Vector4,
 }
 impl Light{
-    pub fn read_from_tokens(tokens: &Vec<&str>) -> Self{
-        let x = tokens[2].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let y = tokens[3].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let z = tokens[4].to_string().trim().parse::<f64>().expect("Please enter a float.");
-
-        let intensity = Vector4::from_slice(&tokens[5..8]);
-        return Self{pos: Vector4::point(x,y,z), intensity};
+    pub fn read_from_tokens(tokens: &Vec<&str>) -> Option<Self>{
+        let pos_opt = Vector4::point_from_slice(&tokens[2..5]);
+        let intensity_opt = Vector4::vec_from_slice(&tokens[5..8]);
+        if let Some(pos) = pos_opt{
+            if let Some(intensity) = intensity_opt{
+                return Some(Self{pos, intensity});
+            }
+        }
+        return None;
     }
 }
 
@@ -38,31 +40,31 @@ pub struct Sphere{
     pub bright: f64,
 }
 impl Sphere{
-    pub fn read_from_tokens(tokens: &Vec<&str>) -> Self{
-        
-        let x = tokens[2].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let y = tokens[3].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let z = tokens[4].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        
-        let scale_x = tokens[5].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let scale_y = tokens[6].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let scale_z = tokens[7].to_string().trim().parse::<f64>().expect("Please enter a float.");
+    pub fn read_from_tokens(tokens: &Vec<&str>) -> Option<Self>{
+        let pos_opt = Vector4::point_from_slice(&tokens[2..5]);
+        let scale_opt = Vector4::vec_from_slice(&tokens[5..8]);
+        let color_opt = Vector4::vec_from_slice(&tokens[8..11]);
+        if let Some(pos) = pos_opt {
+            if let Some(scale) = scale_opt {
+                if let Some(color) = color_opt {
+                    let trans_matrix = Matrix4::trans(pos.x(),pos.y(),pos.z());
+                    let scale_matrix = Matrix4::scale(scale.x(),scale.y(),scale.z());
+                    let inv_matrix = &trans_matrix * &scale_matrix;
+                    let inv_matrix = inv_matrix.inverse();
+                    let inv_transp = inv_matrix.transpose();
+                    
 
-        let trans_matrix = Matrix4::trans(x,y,z);
-        let scale_matrix = Matrix4::scale(scale_x,scale_y,scale_z);
-        let inv_matrix = &trans_matrix * &scale_matrix;
-        let inv_matrix = inv_matrix.inverse();
-        let inv_transp = inv_matrix.transpose();
-        let color = Vector4::from_slice(&tokens[8..11]);
+                    let amb = tokens[11].to_string().trim().parse::<f64>().unwrap();
+                    let diff = tokens[12].to_string().trim().parse::<f64>().unwrap();
+                    let spec = tokens[13].to_string().trim().parse::<f64>().unwrap();
+                    let refl = tokens[14].to_string().trim().parse::<f64>().unwrap();
+                    let bright = tokens[15].to_string().trim().parse::<f64>().unwrap();
 
-        let amb = tokens[11].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let diff = tokens[12].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let spec = tokens[13].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let refl = tokens[14].to_string().trim().parse::<f64>().expect("Please enter a float.");
-        let bright = tokens[15].to_string().trim().parse::<f64>().expect("Please enter a float.");
-
-        return Self{pos: Vector4::point(x,y,z), scale: Vector4::vec(scale_x, scale_y, scale_z), inv_matrix, inv_transp,
-            color, amb, diff, spec, refl, bright};
+                    return Some(Self{pos, scale, inv_matrix, inv_transp,color, amb, diff, spec, refl, bright});
+                } 
+            }
+        }
+        return None;
     }
 }
 impl fmt::Display for Sphere{
