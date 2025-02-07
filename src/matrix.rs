@@ -34,6 +34,44 @@ impl Matrix4{
         return matrix;
     }
 
+    pub fn rot_x(angle: f64) -> Self{
+        let cos = angle.cos();
+        let sin = angle.sin();
+        let mut matrix = Self::new();
+        matrix.m[0] = 1.0;
+        matrix.m[5] = cos;
+        matrix.m[6] = -sin;
+        matrix.m[9] = sin;
+        matrix.m[10] = cos;
+        matrix.m[15] = 1.0;
+        return matrix;
+    }
+    pub fn rot_y(angle: f64) -> Self{
+        let cos = angle.cos();
+        let sin = angle.sin();
+        let mut matrix = Self::new();
+        matrix.m[0] = cos;
+        matrix.m[2] = sin;
+        matrix.m[5] = 1.0;
+        matrix.m[8] = -sin;
+        matrix.m[10] = cos;
+        matrix.m[15] = 1.0;
+        return matrix;
+    }
+
+    pub fn rot_z(angle: f64) -> Self{
+        let cos = angle.cos();
+        let sin = angle.sin();
+        let mut matrix = Self::new();
+        matrix.m[0] = cos;
+        matrix.m[1] = - sin;
+        matrix.m[4] = sin;
+        matrix.m[5] = cos;
+        matrix.m[10] = 1.0;
+        matrix.m[15] = 1.0;
+        return matrix;
+    }
+
     pub fn transpose(&self) -> Self{
         let mut arr: [f64; 16] = [0.0; 16];
         for row in 0..4{
