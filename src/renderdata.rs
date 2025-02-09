@@ -240,14 +240,14 @@ impl RenderData{
                 "LEFT" => left = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "RIGHT" => right = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "BACK" => {
-                    let back_color_opt = Vector4::vec_from_slice(&tokens[1..4]);
+                    let back_color_opt = Vector4::vec_from_str_slice(&tokens[1..4]);
                     if back_color_opt.is_none() {
                         return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
                     }
                     back_color = back_color_opt.unwrap();
                 },
                 "AMBIENT" =>{
-                    let amb_color_opt = Vector4::vec_from_slice(&tokens[1..4]);
+                    let amb_color_opt = Vector4::vec_from_str_slice(&tokens[1..4]);
                     if amb_color_opt.is_none(){
                         return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
                     }

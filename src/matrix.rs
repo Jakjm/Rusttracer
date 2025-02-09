@@ -221,7 +221,20 @@ impl Vector4{
         let blue = (255.0 * blue) as u8;
         return (red, green, blue);
     }
-    pub fn vec_from_slice(slice: &[&str]) -> Option<Self>{
+    pub fn vec_from_slice(slice: &[f64]) -> Self{
+        let x = slice[0];
+        let y = slice[1];
+        let z = slice[2];
+        return Self::vec(x, y, z);
+    }
+    pub fn point_from_slice(slice: &[f64]) -> Self{
+        let x = slice[0];
+        let y = slice[1];
+        let z = slice[2];
+        return Self::point(x, y, z);        
+    }
+
+    pub fn vec_from_str_slice(slice: &[&str]) -> Option<Self>{
         if slice.len() != 3 {
             return None;
         }
@@ -238,7 +251,7 @@ impl Vector4{
             return Some(Self::vec(x, y, z));
         }
     }
-    pub fn point_from_slice(slice: &[&str]) -> Option<Self>{
+    pub fn point_from_str_slice(slice: &[&str]) -> Option<Self>{
         if slice.len() != 3 {
             return None;
         }
