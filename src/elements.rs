@@ -59,7 +59,7 @@ impl Sphere{
 
         //Parse the tokens into f64s...
         let token_slice: &[&str] = &tokens[2..];
-        let mut parsed_tokens: [f64;18] = [0.0;18];
+        let mut parsed_tokens: [f64;17] = [0.0;17];
         for i in 0..token_slice.len(){
             let parse_result = token_slice[i].to_string().trim().parse::<f64>();
             match parse_result{

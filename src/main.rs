@@ -40,10 +40,21 @@ fn main() -> std::io::Result<()> {
         test();
     }
     else{
-        let mut data = RenderData::read_from_file(&args[1]);
+        let file_name_index: usize;
+        let sample_amt: u32;
+        if args[1] == "-a" {
+            file_name_index = 2;
+            sample_amt = 16;
+        }
+        else{
+            file_name_index = 1;
+            sample_amt = 0;
+        }
+
+        let mut data = RenderData::read_from_file(&args[file_name_index]);
         if let Ok(file_data) = &mut data {
             println!("{}", file_data);
-            file_data.render();
+            file_data.render(sample_amt);
             file_data.save_image();
         }
         else if let Err(error) = &data{

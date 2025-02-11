@@ -179,20 +179,71 @@ impl RenderData{
         }
         return color;
     }
-    pub fn render(&mut self){
+    pub fn render(&mut self, extra_points: u32){
         let eye = Vector4::point(0.0,0.0,0.0);
         for px_y in 0..self.height{
             for px_x in 0..self.width{
+                let mut num_samples : f64 = 1.0;
+                let mut average_color = Vector4::vec(0.0, 0.0, 0.0);
+
                 let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + 0.5) / self.width as f64);
                 let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + 0.5) / self.height as f64);
-
                 let mut ray = Vector4::vec(x,y, -self.near); //Ray directly in the center of pixel at (x,y).
-                let color = self.traceray(&eye, &ray, 1.0000001, 3);
+                let mut color = self.traceray(&eye, &ray, 1.0000001, 3);
+                average_color += &color;
 
-                self.array[(px_y * self.height + px_x) as usize] = color;
+                for i in 0..extra_points{
+                    let angle = 2.0 * std::f64::consts::PI * (i as f64 / extra_points as f64);
+                    let variance_x = 0.5 + 0.25 * angle.cos();
+                    let variance_y = 0.5 + 0.25 * angle.sin();
+                    let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + variance_x) / self.width as f64);
+                    let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + variance_y) / self.height as f64);
+
+                    let mut ray = Vector4::vec(x, y, -self.near);
+                    let mut color = self.traceray(&eye, &ray, 1.0000001, 3);
+                    color *= 0.5;
+                    average_color += &color;
+                    num_samples += 0.5;
+
+                }
+
+                average_color *= (1.0 / num_samples);
+                self.array[(px_y * self.height + px_x) as usize] = average_color;
             }
         }
 
+    }
+    pub fn reduce_aliasing(&mut self){
+        let capacity = (self.width * self.height) as usize;
+        let mut array_copy : Vec<Vector4> = vec![self.back_color.clone(); capacity];
+        for px_y in 0..(self.height as i32){
+            for px_x in 0..(self.width as i32){
+                let mut samples : f64 = 0.0;
+                let mut average_color : Vector4 = Vector4::vec(0.0, 0.0, 0.0);
+
+                for sample_y in px_y - 2 .. px_y + 2{
+                    for sample_x in px_x - 2 .. px_x + 2{
+                        let sample_value = 15 - 3 * (sample_y - px_y).abs() - 3 * (sample_x - px_x).abs();
+                        if 0 <= sample_y && sample_y < (self.height as i32){
+                            if 0 <= sample_x && sample_x < (self.width as i32){
+
+                                let mut sample = self.array[(sample_y * (self.height as i32) + sample_x) as usize].clone();
+                                sample *= sample_value as f64;
+                                average_color += &sample;
+                                samples += sample_value as f64;
+                            }
+                        }
+                    }
+                }
+                average_color *= (1.0 / samples);
+                array_copy[(px_y * (self.height as i32) + px_x) as usize] = average_color;
+            }
+        }
+        for px_y in 0..self.height{
+            for px_x in 0..self.width{
+                self.array[(px_y * self.height + px_x) as usize] = array_copy[(px_y * self.height + px_x) as usize].clone();
+            }
+        }
     }
     pub fn read_from_file(filename: &String) -> Result<Self, io::Error>{
         let path = Path::new(&filename);
