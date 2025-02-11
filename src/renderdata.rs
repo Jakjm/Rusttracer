@@ -194,8 +194,8 @@ impl RenderData{
 
                 for i in 0..extra_points{
                     let angle = 2.0 * std::f64::consts::PI * (i as f64 / extra_points as f64);
-                    let variance_x = 0.5 + 0.25 * angle.cos();
-                    let variance_y = 0.5 + 0.25 * angle.sin();
+                    let variance_x = 0.5 + 0.45 * angle.cos();
+                    let variance_y = 0.5 + 0.45 * angle.sin();
                     let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + variance_x) / self.width as f64);
                     let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + variance_y) / self.height as f64);
 

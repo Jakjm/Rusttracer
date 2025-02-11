@@ -21,7 +21,6 @@ fn test(){
     let matrix2 = Matrix4::trans(5.0,0.0,5.0);
     println!("{}",matrix2);
 
-
     let product = &matrix * &matrix2;
     println!("Product:\n{}", product);
 
@@ -44,7 +43,7 @@ fn main() -> std::io::Result<()> {
         let sample_amt: u32;
         if args[1] == "-a" {
             file_name_index = 2;
-            sample_amt = 16;
+            sample_amt = 4;
         }
         else{
             file_name_index = 1;
