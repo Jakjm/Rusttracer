@@ -295,6 +295,13 @@ impl ops::MulAssign<f64> for Vector4{
         }
     }
 }
+impl ops::DivAssign<f64> for Vector4{
+    fn div_assign(&mut self, rhs: f64){
+        for i in 0..4{
+            self.arr[i] /= rhs;
+        }
+    }
+}
 impl ops::SubAssign<&Vector4> for Vector4{
     fn sub_assign(&mut self, rhs: &Vector4){
         for i in 0..4{
@@ -316,6 +323,7 @@ impl ops::MulAssign<&Vector4> for Vector4{
         }
     }
 }
+
 impl fmt::Display for Vector4{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         return write!(f, "({:.3},{:.3},{:.3},{:.3})", self.arr[0], self.arr[1], self.arr[2], self.arr[3]);

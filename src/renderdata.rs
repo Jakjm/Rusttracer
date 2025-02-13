@@ -48,9 +48,9 @@ impl RenderData{
         Ok(())
     }
 
-    pub fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64) -> Option<(&Sphere,f64)> {
+    pub fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64) -> Option<(&Sphere,f64,Vector4,Vector4)> {
         let mut lowest = std::f64::INFINITY;
-        let mut s : Option<(&Sphere,f64)> = None;
+        let mut col_data : Option<(&Sphere,f64,Vector4,Vector4)> = None;
         for sphere in self.spheres.iter(){
             let origin_prime = &sphere.inv_matrix * origin;
             let ray_prime = &sphere.inv_matrix * ray;
@@ -68,14 +68,31 @@ impl RenderData{
                 if t < min { 
                     t = (-b + sqrt_det) / a;
                 }
-
                 if t > min && t < lowest{
-                    s = Some((sphere,t));
+                    //Calculate the collision point on sphere...
+                    let mut col_pt = ray.clone();
+                    col_pt *= t;
+                    col_pt += &origin;
+                    col_pt.force_point();
+        
+                    //Calculate the normal of collision...
+                    let mut col_pt_prime = ray_prime.clone();
+                    col_pt_prime *= t;
+                    col_pt_prime += &origin_prime;
+        
+                    if ray_prime.dot(&ray_prime) > origin_prime.dot(&origin_prime) {
+                        col_pt_prime *= -1.0;
+                    }
+                    col_pt_prime.force_vec();
+                    let mut normal =  &sphere.inv_transp * &col_pt_prime;
+                    normal.force_vec();
+
+                    col_data = Some((sphere,t, col_pt, normal));
                     lowest = t;
                 }
             }
         }
-        return s;
+        return col_data;
     }
 
     pub fn computeLightColor(&self, col_pt: &Vector4, ray: &Vector4, normal: &Vector4, sphere: &Sphere) -> Vector4{
@@ -90,12 +107,14 @@ impl RenderData{
                 continue;
             }
             let mut result = self.check_collision(col_pt, &shadow_ray, 0.000000001);
-            if let Some((dummy,t)) = result{
-                if t > 1.0{ //If there is a collision that occurs after the light, we don't care...
-                    result = None;
+            
+            let mut light_blocked: bool = false; 
+            if let Some((dummy,t, col_pt, normal)) = result{
+                if t < 1.0{
+                    light_blocked = true;
                 }
             }
-            if result.is_none() {
+            if !light_blocked {
                 let normal_len_sq = normal.dot(normal);
                 let normal_len = normal_len_sq.sqrt();
                 let shadow_ray_len = shadow_ray.dot(&shadow_ray).sqrt();
@@ -135,24 +154,7 @@ impl RenderData{
     }
     pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounce_ct : i32) -> Vector4{
         let mut color = self.back_color.clone();
-        if let Some((sphere,t)) = self.check_collision(&origin, &ray, min_t){
-            let mut col_pt = ray.clone();
-            col_pt *= t;
-            col_pt += &origin;
-
-            let origin_prime = &sphere.inv_matrix * origin;
-            let mut col_pt_prime = origin_prime.clone();
-            let mut ray_prime = &sphere.inv_matrix * ray;
-            ray_prime *= t;
-            col_pt_prime += &ray_prime;
-
-            if ray_prime.dot(&ray_prime) > origin_prime.dot(&origin_prime) {
-                col_pt_prime *= -1.0;
-            }
-            col_pt_prime.force_vec();
-            let mut normal =  &sphere.inv_transp * &col_pt_prime;
-            normal.force_vec();
-
+        if let Some((sphere, t, col_pt, normal)) = self.check_collision(&origin, &ray, min_t){
             color = Vector4::zero();
             let mut amb_color = self.amb_color.clone();
             amb_color *= sphere.amb;
@@ -207,7 +209,7 @@ impl RenderData{
 
                 }
 
-                average_color *= (1.0 / num_samples);
+                average_color /= num_samples;
                 self.array[(px_y * self.height + px_x) as usize] = average_color;
             }
         }
