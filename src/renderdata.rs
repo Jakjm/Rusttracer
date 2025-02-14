@@ -213,7 +213,40 @@ impl RenderData{
                 self.array[(px_y * self.height + px_x) as usize] = average_color;
             }
         }
+    }
+    pub fn read_resolution(tokens: &Vec<&str>) -> Result<(u32, u32), io::Error>{
+        if tokens.len() != 3 {
+            return Err(Error::new(ErrorKind::Other, "Incorrect format for resolution line!"));
+        }
 
+        let width_res = tokens[1].to_string().trim().parse::<u32>();
+        let height_res = tokens[2].to_string().trim().parse::<u32>();
+        if width_res.is_err() || height_res.is_err(){
+            return Err(Error::new(ErrorKind::Other, "Please enter a positive integer width and height.")); 
+        }
+
+        let width = width_res.unwrap();
+        let height = height_res.unwrap();
+        if width == 0 || height == 0 {
+            return Err(Error::new(ErrorKind::Other, "Please enter a positive integer width and height.")); 
+        }
+        return Ok((width, height));
+    }
+    pub fn read_scene_param(tokens: &Vec<&str>, param_name: &str, should_be_pos: bool) -> Result<f64, io::Error>{
+        if tokens.len() != 2 {
+            return Err(Error::new(ErrorKind::Other, format!("Incorrect format for {param_name} line!")));
+        }
+
+        let result = tokens[1].to_string().trim().parse::<f64>();
+        if result.is_err(){
+            return Err(Error::new(ErrorKind::Other, format!("Failed to parse value for {param_name}!"))); 
+        }
+
+        let param_val = result.unwrap();
+        if (should_be_pos && param_val <= 0.0) || (!should_be_pos && param_val >= 0.0) {
+            return Err(Error::new(ErrorKind::Other, format!("Incorrect sign for {param_name}!."))); 
+        }
+        return Ok(param_val);
     }
     pub fn read_from_file(filename: &String) -> Result<Self, io::Error>{
         let path = Path::new(&filename);
@@ -224,9 +257,9 @@ impl RenderData{
         let mut spheres = Vec::<Sphere>::new();
         let mut lights = Vec::<Light>::new();
 
-        let mut near = 1.0;
-        let (mut left, mut right, mut bottom, mut top) : (f64, f64, f64, f64) = (-1.0, 1.0, -1.0, 1.0);
-        let (mut width, mut height): (u32, u32) = (800, 600); 
+        let mut near = 0.0;
+        let (mut left, mut right, mut bottom, mut top) : (f64, f64, f64, f64) = (0.0, 0.0, 0.0, 0.0);
+        let (mut width, mut height): (u32, u32) = (0, 0); 
         let mut back_color = Vector4::zero();
         let mut amb_color = Vector4::zero();
         let mut output_file = "output.txt".to_string();
@@ -235,32 +268,48 @@ impl RenderData{
             let first_token = tokens[0];
             match first_token {
                 "SPHERE" => {
-                    if let Some(sphere) = Sphere::read_from_tokens(&tokens){
-                        spheres.push(sphere);
+                    let result = Sphere::read_from_tokens(&tokens);
+                    if result.is_none() {
+                        return Err(Error::new(ErrorKind::Other, format!("Could not read sphere from {line}")));
                     }
-                    else{
-                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
-                    } 
+                    spheres.push(result.unwrap());
                 },
                 "LIGHT" => {
-                    if let Some(light) = Light::read_from_tokens(&tokens){
-                        lights.push(light);
+                    let result = Light::read_from_tokens(&tokens);
+                    if result.is_none() {
+                        return Err(Error::new(ErrorKind::Other, format!("Could not read light from {line}")));
                     }
-                    else{
-                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
-                    }
+                    lights.push(result.unwrap());
                     
                 },
                 "RES" => {
-                    width = tokens[1].to_string().trim().parse::<u32>().expect("Please enter an integer width.");
-                    height = tokens[2].to_string().trim().parse::<u32>().expect("Please enter an integer height.");
+                    if width != 0 {
+                        return Err(Error::new(ErrorKind::Other, "Only one line for the resolution is permitted."));
+                    }
+                    let result = Self::read_resolution(&tokens);
+                    if let Err(e) = result {
+                        return Err(e);
+                    }
+                    (width, height) = result.unwrap();
                 },
-                "NEAR" => near = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
+                "NEAR" => {
+                    if near != 0.0{
+                        return Err(Error::new(ErrorKind::Other, "Only one line for the near plane is permitted."));
+                    }
+                    let result = Self::read_scene_param(&tokens, "near", true);
+                    if let Err(e) = result {
+                        return Err(e);
+                    }
+                    near = result.unwrap();
+                },
                 "TOP" => top = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "BOTTOM" => bottom = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "LEFT" => left = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "RIGHT" => right = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
                 "BACK" => {
+                    if tokens.len() != 4 {
+                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    }
                     let back_color_opt = Vector4::vec_from_str_slice(&tokens[1..4]);
                     if back_color_opt.is_none() {
                         return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
@@ -268,6 +317,9 @@ impl RenderData{
                     back_color = back_color_opt.unwrap();
                 },
                 "AMBIENT" =>{
+                    if tokens.len() != 4 {
+                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    }
                     let amb_color_opt = Vector4::vec_from_str_slice(&tokens[1..4]);
                     if amb_color_opt.is_none(){
                         return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
