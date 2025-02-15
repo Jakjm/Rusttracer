@@ -36,6 +36,10 @@ impl fmt::Display for Light{
     }
 }
 
+pub trait Shape{
+    fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64, max:f64) -> Option<(f64,Vector4,Vector4)>;
+}
+
 pub struct Sphere{
     pos: Vector4,
     scale: Vector4,
@@ -111,6 +115,51 @@ impl Sphere{
         let refl = lighting_values[3];
         let bright = lighting_values[4];
         return Some(Self{pos, scale, inv_matrix, inv_transp, r_x, r_y, r_z, color, amb, diff, spec, refl, bright});
+    }
+}
+impl Shape for Sphere{
+    fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(f64,Vector4,Vector4)>{
+        let origin_prime = &self.inv_matrix * origin;
+        let ray_prime = &self.inv_matrix * ray;
+        
+        let a = ray_prime.dot(&ray_prime);
+        let b = origin_prime.dot(&ray_prime);
+        let c = origin_prime.dot(&origin_prime) - 1.0;
+
+        let det = b * b - a * c;
+        if det >= 0.0{
+            let sqrt_det = det.sqrt();
+            let mut t = (-b - sqrt_det) / a;
+            //Ray missed the front of the sphere.
+            //Try for a collision for the back of the sphere.
+            if t < min { 
+                t = (-b + sqrt_det) / a;
+            }
+            //If there is a collision between the min and max...
+            if t > min && t < max{
+                //Calculate the collision point on sphere...
+                let mut col_pt = ray.clone();
+                col_pt *= t;
+                col_pt += &origin;
+                col_pt.force_point();
+    
+                //Calculate the normal of collision...
+                let mut col_pt_prime = ray_prime.clone();
+                col_pt_prime *= t;
+                col_pt_prime += &origin_prime;
+    
+                if ray_prime.dot(&ray_prime) > origin_prime.dot(&origin_prime) {
+                    col_pt_prime *= -1.0;
+                }
+                col_pt_prime.force_vec();
+                let mut normal =  &self.inv_transp * &col_pt_prime;
+                normal.force_vec();
+
+                //TODO force len of normal to 1.0?
+                return Some((t, col_pt, normal));
+            }
+        }
+        return None;
     }
 }
 impl fmt::Display for Sphere{

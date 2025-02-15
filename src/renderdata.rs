@@ -5,7 +5,7 @@ use std::io::{Error, ErrorKind};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-
+use crate::elements::Shape;
 use crate::matrix::Vector4;
 use crate::matrix::Matrix4;
 use crate::elements::Sphere;
@@ -48,47 +48,13 @@ impl RenderData{
         Ok(())
     }
 
-    pub fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64) -> Option<(&Sphere,f64,Vector4,Vector4)> {
+    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(&Sphere,f64,Vector4,Vector4)> {
         let mut lowest = std::f64::INFINITY;
         let mut col_data : Option<(&Sphere,f64,Vector4,Vector4)> = None;
         for sphere in self.spheres.iter(){
-            let origin_prime = &sphere.inv_matrix * origin;
-            let ray_prime = &sphere.inv_matrix * ray;
-            
-            let a = ray_prime.dot(&ray_prime);
-            let b = origin_prime.dot(&ray_prime);
-            let c = origin_prime.dot(&origin_prime) - 1.0;
-
-            let det = b * b - a * c;
-            if det >= 0.0{
-                let sqrt_det = det.sqrt();
-                let mut t = (-b - sqrt_det) / a;
-                //Ray missed the front of the sphere.
-                //Try for a collision for the back of the sphere.
-                if t < min { 
-                    t = (-b + sqrt_det) / a;
-                }
-                if t > min && t < lowest{
-                    //Calculate the collision point on sphere...
-                    let mut col_pt = ray.clone();
-                    col_pt *= t;
-                    col_pt += &origin;
-                    col_pt.force_point();
-        
-                    //Calculate the normal of collision...
-                    let mut col_pt_prime = ray_prime.clone();
-                    col_pt_prime *= t;
-                    col_pt_prime += &origin_prime;
-        
-                    if ray_prime.dot(&ray_prime) > origin_prime.dot(&origin_prime) {
-                        col_pt_prime *= -1.0;
-                    }
-                    col_pt_prime.force_vec();
-                    let mut normal =  &sphere.inv_transp * &col_pt_prime;
-                    normal.force_vec();
-
-                    col_data = Some((sphere,t, col_pt, normal));
-                    lowest = t;
+            if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, max){
+                if t < lowest{
+                    col_data = Some((sphere, t, col_pt, normal));
                 }
             }
         }
@@ -106,7 +72,7 @@ impl RenderData{
             if dot < 0.0 {
                 continue;
             }
-            let mut result = self.check_collision(col_pt, &shadow_ray, 0.000000001);
+            let mut result = self.check_collisions(col_pt, &shadow_ray, 0.000000001, 1.0);
             
             let mut light_blocked: bool = false; 
             if let Some((dummy,t, col_pt, normal)) = result{
@@ -154,7 +120,7 @@ impl RenderData{
     }
     pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounce_ct : i32) -> Vector4{
         let mut color = self.back_color.clone();
-        if let Some((sphere, t, col_pt, normal)) = self.check_collision(&origin, &ray, min_t){
+        if let Some((sphere, t, col_pt, normal)) = self.check_collisions(&origin, &ray, min_t, std::f64::INFINITY){
             color = Vector4::zero();
             let mut amb_color = self.amb_color.clone();
             amb_color *= sphere.amb;
