@@ -1,4 +1,3 @@
-use std::env;
 use std::fmt;
 use std::io;
 use std::io::{Error, ErrorKind};
@@ -7,9 +6,11 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 use crate::elements::Shape;
 use crate::matrix::Vector4;
-use crate::matrix::Matrix4;
 use crate::elements::Sphere;
 use crate::elements::Light;
+use image::codecs::pnm::{PnmEncoder, PnmSubtype, SampleEncoding};
+use image::codecs::png::PngEncoder;
+use image::{ImageEncoder, Rgb};
 pub struct RenderData{
     near: f64,
     left: f64,
@@ -23,11 +24,11 @@ pub struct RenderData{
     back_color: Vector4,
     amb_color: Vector4,
     array: Vec<Vector4>,
-    output_file: String,
+    output_ppm_file: String,
+    output_png_file: String,
 }
 
 impl RenderData{
-
     pub fn save_image(&self) -> std::io::Result<()>{
         let capacity = (3 * self.width * self.height) as usize;
         let mut raw_pixels = Vec::<u8>::with_capacity(capacity);
@@ -38,30 +39,48 @@ impl RenderData{
             raw_pixels.push(blue);
         }
 
-        let path = Path::new(&self.output_file);
-        let mut file = File::create(path)?;
-        let mut writer = BufWriter::new(file);
-        let opening_string = format!("P6\n{} {}\n{}\n", self.width, self.height, 255);
-        writer.write_all(opening_string.as_bytes())?; 
-        writer.write_all(&raw_pixels);
+        let rgb_image = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_vec(self.width, self.height, raw_pixels).unwrap();
+
+        let ppm_path = Path::new(&self.output_ppm_file);
+        let ppm_file = File::create(ppm_path)?;
+        let mut ppm_writer = BufWriter::new(ppm_file);
+        let pnm_encoder = PnmEncoder::new(ppm_writer).with_subtype(PnmSubtype::Pixmap(SampleEncoding::Binary));
+        if pnm_encoder.write_image(&rgb_image, self.width, self.height, image::ExtendedColorType::Rgb8).is_err() {
+            return Err(Error::new(ErrorKind::Other, format!("Error when writing png file.")));
+        }
+        //Originally used the following using this specification:
+        //https://paulbourke.net/dataformats/ppm/
+        // let opening_string = format!("P6\n{} {}\n{}\n", self.width, self.height, 255);
+        // ppm_writer.write_all(opening_string.as_bytes())?; 
+        // ppm_writer.write_all(&raw_pixels)?;
+
+        
+
+        let png_path = Path::new(&self.output_png_file);
+        let png_file = File::create(png_path)?;
+        let png_writer = BufWriter::new(png_file);
+        let png_encoder = PngEncoder::new(png_writer);
+        if png_encoder.write_image(&rgb_image, self.width, self.height, image::ExtendedColorType::Rgb8).is_err() {
+            return Err(Error::new(ErrorKind::Other, format!("Error when writing png file.")));
+        }
 
         Ok(())
     }
 
-    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(&Sphere,f64,Vector4,Vector4)> {
-        let mut lowest = std::f64::INFINITY;
-        let mut col_data : Option<(&Sphere,f64,Vector4,Vector4)> = None;
+    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(&Sphere,Vector4,Vector4)> {
+        let lowest = std::f64::INFINITY;
+        let mut col_data : Option<(&Sphere,Vector4,Vector4)> = None;
         for sphere in self.spheres.iter(){
             if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, max){
                 if t < lowest{
-                    col_data = Some((sphere, t, col_pt, normal));
+                    col_data = Some((sphere, col_pt, normal));
                 }
             }
         }
         return col_data;
     }
 
-    pub fn computeLightColor(&self, col_pt: &Vector4, ray: &Vector4, normal: &Vector4, sphere: &Sphere) -> Vector4{
+    pub fn compute_light_color(&self, col_pt: &Vector4, ray: &Vector4, normal: &Vector4, sphere: &Sphere) -> Vector4{
         let mut color = Vector4::zero();
 
         for light in self.lights.iter(){
@@ -72,15 +91,8 @@ impl RenderData{
             if dot < 0.0 {
                 continue;
             }
-            let mut result = self.check_collisions(col_pt, &shadow_ray, 0.000000001, 1.0);
-            
-            let mut light_blocked: bool = false; 
-            if let Some((dummy,t, col_pt, normal)) = result{
-                if t < 1.0{
-                    light_blocked = true;
-                }
-            }
-            if !light_blocked {
+
+            if self.check_collisions(col_pt, &shadow_ray, 0.000000001, 1.0).is_none() {
                 let normal_len_sq = normal.dot(normal);
                 let normal_len = normal_len_sq.sqrt();
                 let shadow_ray_len = shadow_ray.dot(&shadow_ray).sqrt();
@@ -120,7 +132,7 @@ impl RenderData{
     }
     pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounce_ct : i32) -> Vector4{
         let mut color = self.back_color.clone();
-        if let Some((sphere, t, col_pt, normal)) = self.check_collisions(&origin, &ray, min_t, std::f64::INFINITY){
+        if let Some((sphere, col_pt, normal)) = self.check_collisions(&origin, &ray, min_t, std::f64::INFINITY){
             color = Vector4::zero();
             let mut amb_color = self.amb_color.clone();
             amb_color *= sphere.amb;
@@ -128,7 +140,7 @@ impl RenderData{
 
             color += &amb_color;
 
-            let light_color = self.computeLightColor(&col_pt, &ray, &normal, sphere);
+            let light_color = self.compute_light_color(&col_pt, &ray, &normal, sphere);
             color += &light_color;
 
             if bounce_ct > 0 {
@@ -156,8 +168,8 @@ impl RenderData{
 
                 let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + 0.5) / self.width as f64);
                 let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + 0.5) / self.height as f64);
-                let mut ray = Vector4::vec(x,y, -self.near); //Ray directly in the center of pixel at (x,y).
-                let mut color = self.traceray(&eye, &ray, 1.0000001, 3);
+                let ray = Vector4::vec(x,y, -self.near); //Ray directly in the center of pixel at (x,y).
+                let color = self.traceray(&eye, &ray, 1.0000001, 3);
                 average_color += &color;
 
                 for i in 0..extra_points{
@@ -167,7 +179,7 @@ impl RenderData{
                     let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + variance_x) / self.width as f64);
                     let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + variance_y) / self.height as f64);
 
-                    let mut ray = Vector4::vec(x, y, -self.near);
+                    let ray = Vector4::vec(x, y, -self.near);
                     let mut color = self.traceray(&eye, &ray, 1.0000001, 3);
                     color *= 0.4;
                     average_color += &color;
@@ -198,7 +210,7 @@ impl RenderData{
         }
         return Some((width, height));
     }
-    pub fn read_scene_param(tokens: &Vec<&str>, param_name: &str, should_be_pos: bool) -> Option<f64>{
+    pub fn read_scene_param(tokens: &Vec<&str>, should_be_pos: bool) -> Option<f64>{
         if tokens.len() != 2 {
             return None;
         }
@@ -263,7 +275,7 @@ impl RenderData{
                     if near_result.is_some(){
                         return Err(Error::new(ErrorKind::Other, "Only one line for the near plane is permitted!"));
                     }
-                    match Self::read_scene_param(&tokens, "near", true) {
+                    match Self::read_scene_param(&tokens, true) {
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read near plane from {line}"))),
                         Some(near) => near_result = Some(near),
                     }
@@ -272,7 +284,7 @@ impl RenderData{
                     if top_result.is_some(){
                         return Err(Error::new(ErrorKind::Other, "Only one line for top is permitted!"));
                     }
-                    match Self::read_scene_param(&tokens, "top", true) {
+                    match Self::read_scene_param(&tokens, true) {
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read top from {line}."))),
                         Some(top) => top_result = Some(top),
                     }
@@ -281,7 +293,7 @@ impl RenderData{
                     if bottom_result.is_some(){
                         return Err(Error::new(ErrorKind::Other, "Only one line for bottom is permitted!"));
                     }
-                    match Self::read_scene_param(&tokens, "bottom", false) {
+                    match Self::read_scene_param(&tokens, false) {
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read bottom from {line}."))),
                         Some(bottom) => bottom_result = Some(bottom),
                     }
@@ -290,7 +302,7 @@ impl RenderData{
                     if left_result.is_some(){
                         return Err(Error::new(ErrorKind::Other, "Only one line for left is permitted!"));
                     }
-                    match Self::read_scene_param(&tokens, "left", false) { 
+                    match Self::read_scene_param(&tokens, false) { 
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read left from {line}."))),
                         Some(left) => left_result = Some(left),    
                     }
@@ -299,7 +311,7 @@ impl RenderData{
                     if right_result.is_some(){
                         return Err(Error::new(ErrorKind::Other, "Only one line for right is permitted!"));
                     }
-                    match Self::read_scene_param(&tokens, "right", true) {
+                    match Self::read_scene_param(&tokens, true) {
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read right from {line}."))),
                         Some(right) => right_result = Some(right),
                     }
@@ -327,6 +339,7 @@ impl RenderData{
                         return Err(Error::new(ErrorKind::Other, "Only one line for output file permitted!"));
                     }
                     match tokens.len(){
+                        
                         2 => output_file_result = Some(tokens[1].to_string().trim().to_string()),
                         _ => return Err(Error::new(ErrorKind::Other, format!("Could not read output file from {line}."))),
                     }
@@ -377,15 +390,16 @@ impl RenderData{
             Some(result) => result,
         };
 
-        let output_file = match output_file_result {
+        let output_ppm_file = match output_file_result {
             None => "output.ppm".to_string(),
             Some(result) => result,
         };
+        let output_png_file = output_ppm_file.trim_end_matches(".ppm").to_string() + ".png";
         
         let capacity = (width * height) as usize;
         let array : Vec<Vector4> = vec![back_color.clone(); capacity];
         let result = Self{near, left, right, bottom, top, width, height, 
-            spheres, lights, back_color, amb_color, array, output_file};
+            spheres, lights, back_color, amb_color, array, output_ppm_file, output_png_file};
         return Ok(result);
     }
 }
@@ -403,7 +417,7 @@ impl fmt::Display for RenderData{
         for light in self.lights.iter(){
             write!(f, "\t-{light}\n")?;
         }
-        write!(f, "\nOutput filename: {}", self.output_file)?;
+        write!(f, "\nOutput filename: {}", self.output_ppm_file)?;
         return Ok(());
     }
 }

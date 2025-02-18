@@ -93,14 +93,14 @@ impl Matrix4{
                 inverse.m[row * 4 + col] *= coeff;
             }
 
-            for otherRow in 0..4{
-                if otherRow == row{
+            for other_row in 0..4{
+                if other_row == row{
                     continue
                 }
-                let coeff = clone.m[otherRow * 4 + row];
+                let coeff = clone.m[other_row * 4 + row];
                 for col in 0..4{
-                    clone.m[otherRow * 4 + col] -= coeff * clone.m[row * 4 + col];
-                    inverse.m[otherRow * 4 + col] -= coeff * inverse.m[row * 4 + col];
+                    clone.m[other_row * 4 + col] -= coeff * clone.m[row * 4 + col];
+                    inverse.m[other_row * 4 + col] -= coeff * inverse.m[row * 4 + col];
                 }
             }
         }

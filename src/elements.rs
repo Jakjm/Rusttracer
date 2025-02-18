@@ -1,5 +1,4 @@
 use std::fmt;
-use std::io;
 //mod matrix;
 use crate::matrix::Vector4;
 use crate::matrix::Matrix4;
@@ -20,7 +19,7 @@ impl Light{
         for i in 0..token_slice.len(){
             let parse_result = token_slice[i].to_string().trim().parse::<f64>();
             match parse_result{
-                Err(e) => return None,
+                Err(_e) => return None,
                 Ok(num) => parsed_tokens[i] = num,
             }
         }
@@ -67,7 +66,7 @@ impl Sphere{
         for i in 0..token_slice.len(){
             let parse_result = token_slice[i].to_string().trim().parse::<f64>();
             match parse_result{
-                Err(e) => return None,
+                Err(_e) => return None,
                 Ok(num) => parsed_tokens[i] = num,
             }
         }

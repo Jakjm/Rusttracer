@@ -1,13 +1,8 @@
 use std::env;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
 
 mod matrix;
-use crate::matrix::Vector4;
 use crate::matrix::Matrix4;
 mod elements;
-use crate::elements::Sphere;
 
 mod renderdata;
 use crate::renderdata::RenderData;
