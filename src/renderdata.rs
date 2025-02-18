@@ -2,7 +2,8 @@ use std::fmt;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter};
+//use std::io::{Write}
 use std::path::Path;
 use crate::elements::Shape;
 use crate::matrix::Vector4;
@@ -43,13 +44,14 @@ impl RenderData{
 
         let ppm_path = Path::new(&self.output_ppm_file);
         let ppm_file = File::create(ppm_path)?;
-        let mut ppm_writer = BufWriter::new(ppm_file);
+        let ppm_writer = BufWriter::new(ppm_file);
         let pnm_encoder = PnmEncoder::new(ppm_writer).with_subtype(PnmSubtype::Pixmap(SampleEncoding::Binary));
         if pnm_encoder.write_image(&rgb_image, self.width, self.height, image::ExtendedColorType::Rgb8).is_err() {
             return Err(Error::new(ErrorKind::Other, format!("Error when writing png file.")));
         }
         //Originally used the following using this specification:
         //https://paulbourke.net/dataformats/ppm/
+        //If ppm_writer is mutable, can use the following:
         // let opening_string = format!("P6\n{} {}\n{}\n", self.width, self.height, 255);
         // ppm_writer.write_all(opening_string.as_bytes())?; 
         // ppm_writer.write_all(&raw_pixels)?;
