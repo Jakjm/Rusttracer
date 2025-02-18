@@ -16,7 +16,7 @@ pub struct RenderData{
     right: f64,
     bottom: f64,
     top: f64,
-    width: u32,
+    width: u32, 
     height: u32,
     spheres: Vec<Sphere>,
     lights: Vec<Light>,
@@ -162,8 +162,8 @@ impl RenderData{
 
                 for i in 0..extra_points{
                     let angle = 2.0 * std::f64::consts::PI * (i as f64 / extra_points as f64) + 0.25 * std::f64::consts::PI;
-                    let variance_x = 0.5 + 0.45 * angle.cos();
-                    let variance_y = 0.5 + 0.45 * angle.sin();
+                    let variance_x = 0.5 + 0.65 * angle.cos();
+                    let variance_y = 0.5 + 0.65 * angle.sin();
                     let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + variance_x) / self.width as f64);
                     let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + variance_y) / self.height as f64);
 
@@ -180,129 +180,213 @@ impl RenderData{
             }
         }
     }
-    pub fn read_resolution(tokens: &Vec<&str>) -> Result<(u32, u32), io::Error>{
+    pub fn read_resolution(tokens: &Vec<&str>) -> Option<(u32, u32)>{
         if tokens.len() != 3 {
-            return Err(Error::new(ErrorKind::Other, "Incorrect format for resolution line!"));
+            return None;
         }
 
         let width_res = tokens[1].to_string().trim().parse::<u32>();
         let height_res = tokens[2].to_string().trim().parse::<u32>();
         if width_res.is_err() || height_res.is_err(){
-            return Err(Error::new(ErrorKind::Other, "Please enter a positive integer width and height.")); 
+            return None;
         }
 
         let width = width_res.unwrap();
         let height = height_res.unwrap();
         if width == 0 || height == 0 {
-            return Err(Error::new(ErrorKind::Other, "Please enter a positive integer width and height.")); 
+            return None;
         }
-        return Ok((width, height));
+        return Some((width, height));
     }
-    pub fn read_scene_param(tokens: &Vec<&str>, param_name: &str, should_be_pos: bool) -> Result<f64, io::Error>{
+    pub fn read_scene_param(tokens: &Vec<&str>, param_name: &str, should_be_pos: bool) -> Option<f64>{
         if tokens.len() != 2 {
-            return Err(Error::new(ErrorKind::Other, format!("Incorrect format for {param_name} line!")));
+            return None;
         }
 
         let result = tokens[1].to_string().trim().parse::<f64>();
         if result.is_err(){
-            return Err(Error::new(ErrorKind::Other, format!("Failed to parse value for {param_name}!"))); 
+            return None;
         }
 
         let param_val = result.unwrap();
         if (should_be_pos && param_val <= 0.0) || (!should_be_pos && param_val >= 0.0) {
-            return Err(Error::new(ErrorKind::Other, format!("Incorrect sign for {param_name}!."))); 
+            return None;
         }
-        return Ok(param_val);
+        return Some(param_val);
     }
     pub fn read_from_file(filename: &String) -> Result<Self, io::Error>{
         let path = Path::new(&filename);
-        let file = File::open(&path)?;
-        let mut reader = BufReader::new(file);
+        let file_result = File::open(&path);
+        if file_result.is_err() {
+            return Err(Error::new(ErrorKind::Other, format!("Couldn't open {filename} for reading!"))); 
+        }
+        let mut reader = BufReader::new(file_result.unwrap());
         let lines = (&mut reader).lines();
         
         let mut spheres = Vec::<Sphere>::new();
         let mut lights = Vec::<Light>::new();
 
-        let mut near = 0.0;
-        let (mut left, mut right, mut bottom, mut top) : (f64, f64, f64, f64) = (0.0, 0.0, 0.0, 0.0);
-        let (mut width, mut height): (u32, u32) = (0, 0); 
-        let mut back_color = Vector4::zero();
-        let mut amb_color = Vector4::zero();
-        let mut output_file = "output.txt".to_string();
+        let mut near_result: Option<f64> = None;
+        let (mut left_result, mut right_result, mut top_result, mut bottom_result) : (Option<f64>, Option<f64>, Option<f64>, Option<f64>) = (None, None, None, None);
+
+        let mut resolution_result : Option<(u32, u32)> = None; 
+        
+        let mut amb_color_result: Option<Vector4> = None;
+        let mut back_color_result: Option<Vector4> = None;
+        let mut output_file_result: Option<String> = None;
         for line in lines.map_while(Result::ok){
             let tokens: Vec<&str> = line.split_whitespace().collect();
             let first_token = tokens[0];
             match first_token {
                 "SPHERE" => {
-                    let result = Sphere::read_from_tokens(&tokens);
-                    if result.is_none() {
-                        return Err(Error::new(ErrorKind::Other, format!("Could not read sphere from {line}")));
+                    match Sphere::read_from_tokens(&tokens) {
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read sphere from {line}."))),
+                        Some(sphere) => spheres.push(sphere),
                     }
-                    spheres.push(result.unwrap());
                 },
                 "LIGHT" => {
-                    let result = Light::read_from_tokens(&tokens);
-                    if result.is_none() {
-                        return Err(Error::new(ErrorKind::Other, format!("Could not read light from {line}")));
+                    match Light::read_from_tokens(&tokens){
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read light from {line}."))),
+                        Some(light) => lights.push(light),
                     }
-                    lights.push(result.unwrap());
-                    
                 },
                 "RES" => {
-                    if width != 0 {
-                        return Err(Error::new(ErrorKind::Other, "Only one line for the resolution is permitted."));
+                    if resolution_result.is_some() {
+                        return Err(Error::new(ErrorKind::Other, "Only one line for the resolution is permitted!"));
                     }
-                    let result = Self::read_resolution(&tokens);
-                    if let Err(e) = result {
-                        return Err(e);
+                    match Self::read_resolution(&tokens){
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read resolution from {line}."))),
+                        Some(resolution) => resolution_result = Some(resolution),
                     }
-                    (width, height) = result.unwrap();
                 },
                 "NEAR" => {
-                    if near != 0.0{
-                        return Err(Error::new(ErrorKind::Other, "Only one line for the near plane is permitted."));
+                    if near_result.is_some(){
+                        return Err(Error::new(ErrorKind::Other, "Only one line for the near plane is permitted!"));
                     }
-                    let result = Self::read_scene_param(&tokens, "near", true);
-                    if let Err(e) = result {
-                        return Err(e);
+                    match Self::read_scene_param(&tokens, "near", true) {
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read near plane from {line}"))),
+                        Some(near) => near_result = Some(near),
                     }
-                    near = result.unwrap();
                 },
-                "TOP" => top = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
-                "BOTTOM" => bottom = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
-                "LEFT" => left = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
-                "RIGHT" => right = tokens[1].to_string().trim().parse::<f64>().expect("Please enter a float."),
+                "TOP" => {
+                    if top_result.is_some(){
+                        return Err(Error::new(ErrorKind::Other, "Only one line for top is permitted!"));
+                    }
+                    match Self::read_scene_param(&tokens, "top", true) {
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read top from {line}."))),
+                        Some(top) => top_result = Some(top),
+                    }
+                },
+                "BOTTOM" => {
+                    if bottom_result.is_some(){
+                        return Err(Error::new(ErrorKind::Other, "Only one line for bottom is permitted!"));
+                    }
+                    match Self::read_scene_param(&tokens, "bottom", false) {
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read bottom from {line}."))),
+                        Some(bottom) => bottom_result = Some(bottom),
+                    }
+                },
+                "LEFT" => {
+                    if left_result.is_some(){
+                        return Err(Error::new(ErrorKind::Other, "Only one line for left is permitted!"));
+                    }
+                    match Self::read_scene_param(&tokens, "left", false) { 
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read left from {line}."))),
+                        Some(left) => left_result = Some(left),    
+                    }
+                },
+                "RIGHT" =>{
+                    if right_result.is_some(){
+                        return Err(Error::new(ErrorKind::Other, "Only one line for right is permitted!"));
+                    }
+                    match Self::read_scene_param(&tokens, "right", true) {
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read right from {line}."))),
+                        Some(right) => right_result = Some(right),
+                    }
+                },
                 "BACK" => {
-                    if tokens.len() != 4 {
-                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    if back_color_result.is_some() {
+                        return Err(Error::new(ErrorKind::Other, "Only one line for background colour permitted!"));
                     }
-                    let back_color_opt = Vector4::vec_from_str_slice(&tokens[1..4]);
-                    if back_color_opt.is_none() {
-                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    match Vector4::vec_from_str_tokens(&tokens){
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read background colour from {line}."))),
+                        Some(result) => back_color_result = Some(result),
                     }
-                    back_color = back_color_opt.unwrap();
                 },
                 "AMBIENT" =>{
-                    if tokens.len() != 4 {
-                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    if amb_color_result.is_some() {
+                        return Err(Error::new(ErrorKind::Other, "Only one line for ambient colour permitted!"));
                     }
-                    let amb_color_opt = Vector4::vec_from_str_slice(&tokens[1..4]);
-                    if amb_color_opt.is_none(){
-                        return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
+                    match Vector4::vec_from_str_tokens(&tokens) {
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read ambient colour from {line}."))),
+                        Some(result) => amb_color_result = Some(result),
                     }
-                    amb_color = amb_color_opt.unwrap();
-                } 
-                "OUTPUT" => output_file = tokens[1].to_string().trim().to_string(),
+                },
+                "OUTPUT" => {
+                    if output_file_result.is_some(){
+                        return Err(Error::new(ErrorKind::Other, "Only one line for output file permitted!"));
+                    }
+                    match tokens.len(){
+                        2 => output_file_result = Some(tokens[1].to_string().trim().to_string()),
+                        _ => return Err(Error::new(ErrorKind::Other, format!("Could not read output file from {line}."))),
+                    }
+                },
                 &_ => {
                     return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
-                }
+                },
             }
         }
-        //TODO error handling....
+        
+        let near: f64 = match near_result{
+            None => 1.0,
+            Some(result) => result,
+        };
+
+        let left: f64 = match left_result{
+            None => 1.0,
+            Some(result) => result,
+        };
+
+        let right: f64 = match right_result{
+            None => 1.0,
+            Some(result) => result,
+        };
+
+        let top: f64 = match top_result{
+            None => 1.0,
+            Some(result) => result,
+        };
+
+        let bottom: f64 = match bottom_result{
+            None => 1.0,
+            Some(result) => result,
+        };
+
+        let (width, height) =  match resolution_result {
+            None => (800, 600),
+            Some(resolution) => resolution,
+        };
+
+        let back_color = match back_color_result{
+            None => Vector4::vec(1.0, 1.0, 1.0),
+            Some(result) => result,
+        };
+
+        let amb_color = match amb_color_result{
+            None => Vector4::vec(1.0, 1.0, 1.0),
+            Some(result) => result,
+        };
+
+        let output_file = match output_file_result {
+            None => "output.ppm".to_string(),
+            Some(result) => result,
+        };
+        
         let capacity = (width * height) as usize;
         let array : Vec<Vector4> = vec![back_color.clone(); capacity];
-        return Ok(Self{near, left, right, bottom, top, width, height, 
-            spheres, lights, back_color, amb_color, array, output_file});
+        let result = Self{near, left, right, bottom, top, width, height, 
+            spheres, lights, back_color, amb_color, array, output_file};
+        return Ok(result);
     }
 }
 

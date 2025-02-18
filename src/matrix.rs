@@ -234,13 +234,13 @@ impl Vector4{
         return Self::point(x, y, z);        
     }
 
-    pub fn vec_from_str_slice(slice: &[&str]) -> Option<Self>{
-        if slice.len() != 3 {
+    pub fn vec_from_str_tokens(tokens: &Vec<&str>) -> Option<Self>{
+        if tokens.len() != 4 {
             return None;
         }
-        let x_opt  = slice[0].to_string().trim().parse::<f64>();
-        let y_opt = slice[1].to_string().trim().parse::<f64>();
-        let z_opt  = slice[2].to_string().trim().parse::<f64>();
+        let x_opt  = tokens[1].to_string().trim().parse::<f64>();
+        let y_opt = tokens[2].to_string().trim().parse::<f64>();
+        let z_opt  = tokens[3].to_string().trim().parse::<f64>();
         if x_opt.is_err() || y_opt.is_err() || z_opt.is_err(){
             return None;
         }
@@ -251,13 +251,13 @@ impl Vector4{
             return Some(Self::vec(x, y, z));
         }
     }
-    pub fn point_from_str_slice(slice: &[&str]) -> Option<Self>{
-        if slice.len() != 3 {
+    pub fn point_from_str_tokens(tokens: &Vec<&str>) -> Option<Self>{
+        if tokens.len() != 4 {
             return None;
         }
-        let x_opt  = slice[0].to_string().trim().parse::<f64>();
-        let y_opt = slice[1].to_string().trim().parse::<f64>();
-        let z_opt  = slice[2].to_string().trim().parse::<f64>();
+        let x_opt  = tokens[1].to_string().trim().parse::<f64>();
+        let y_opt = tokens[2].to_string().trim().parse::<f64>();
+        let z_opt  = tokens[3].to_string().trim().parse::<f64>();
         if x_opt.is_err() || y_opt.is_err() || z_opt.is_err(){
             return None;
         }
@@ -267,7 +267,6 @@ impl Vector4{
             let z = z_opt.unwrap();
             return Some(Self::point(x, y, z));
         }
-        
     }
 }
 impl Clone for Vector4{
