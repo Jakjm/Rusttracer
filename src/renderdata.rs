@@ -228,6 +228,12 @@ impl RenderData{
         }
         return Some(param_val);
     }
+    pub fn match_f64_default(option : Option<f64>, default : f64) -> f64{
+        return match option{
+            None => default, 
+            Some(result) => result,
+        };
+    }
     pub fn read_from_file(filename: &String) -> Result<Self, io::Error>{
         let path = Path::new(&filename);
         let file_result = File::open(&path);
@@ -240,17 +246,17 @@ impl RenderData{
         let mut spheres = Vec::<Sphere>::new();
         let mut lights = Vec::<Light>::new();
 
-        let mut near_result: Option<f64> = None;
-        let mut left_result: Option<f64> = None;
-        let mut right_result: Option<f64> = None;
-        let mut bottom_result: Option<f64> = None;
-        let mut top_result: Option<f64> = None;
+        let mut near: Option<f64> = None;
+        let mut left: Option<f64> = None;
+        let mut right: Option<f64> = None;
+        let mut bottom: Option<f64> = None;
+        let mut top: Option<f64> = None;
 
-        let mut resolution_result : Option<(u32, u32)> = None; 
+        let mut resolution : Option<(u32, u32)> = None; 
         
-        let mut amb_color_result: Option<Vector4> = None;
-        let mut back_color_result: Option<Vector4> = None;
-        let mut output_file_result: Option<String> = None;
+        let mut amb_color: Option<Vector4> = None;
+        let mut back_color: Option<Vector4> = None;
+        let mut output_file: Option<String> = None;
         for line in lines.map_while(Result::ok){
             let tokens: Vec<&str> = line.split_whitespace().collect();
             let first_token = tokens[0];
@@ -268,21 +274,21 @@ impl RenderData{
                     }
                 },
                 "RES" => {
-                    if resolution_result.is_some() {
+                    if resolution.is_some() {
                         return Err(Error::new(ErrorKind::Other, "Only one line for the resolution is permitted!"));
                     }
                     match Self::read_resolution(&tokens){
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read resolution from {line}."))),
-                        Some(resolution) => resolution_result = Some(resolution),
+                        Some(res) => resolution = Some(res),
                     }
                 },
                 "NEAR" | "LEFT" | "RIGHT" | "BOTTOM" | "TOP"  => {
                     let (value_reference, should_be_pos) : (&mut Option<f64>, bool) = match first_token {
-                        "NEAR"  => (&mut near_result, true),
-                        "LEFT"  => (&mut left_result, false),
-                        "RIGHT" => (&mut right_result, true),
-                        "BOTTOM" => (&mut bottom_result, false),
-                        "TOP" => (&mut top_result, true),
+                        "NEAR"  => (&mut near, true),
+                        "LEFT"  => (&mut left, false),
+                        "RIGHT" => (&mut right, true),
+                        "BOTTOM" => (&mut bottom, false),
+                        "TOP" => (&mut top, true),
                         &_ => return Err(Error::new(ErrorKind::Other, format!("This is an impossible case!"))),
                     };
 
@@ -296,8 +302,8 @@ impl RenderData{
                 }
                 "BACK" | "AMBIENT" => {
                     let color_reference : &mut Option<Vector4> = match first_token{
-                        "BACK" => &mut back_color_result,
-                        "AMBIENT" => &mut amb_color_result,
+                        "BACK" => &mut back_color,
+                        "AMBIENT" => &mut amb_color,
                         &_ => return Err(Error::new(ErrorKind::Other, format!("This is an impossible case!"))),
                     };
 
@@ -310,11 +316,11 @@ impl RenderData{
                     }
                 },
                 "OUTPUT" => {
-                    if output_file_result.is_some(){
+                    if output_file.is_some(){
                         return Err(Error::new(ErrorKind::Other, "Only one line for output file permitted!"));
                     }
                     match tokens.len(){
-                        2 => output_file_result = Some(tokens[1].to_string().trim().to_string()),
+                        2 => output_file = Some(tokens[1].to_string().trim().to_string()),
                         _ => return Err(Error::new(ErrorKind::Other, format!("Could not read output file from {line}."))),
                     }
                 },
@@ -322,47 +328,28 @@ impl RenderData{
             }
         }
         
-        let near: f64 = match near_result{
-            None => 1.0,
-            Some(result) => result,
-        };
+        let near: f64 = Self::match_f64_default(near, 1.0);
+        let left: f64 = Self::match_f64_default(left, -1.0);
+        let right: f64 = Self::match_f64_default(right, 1.0);
+        let bottom: f64 = Self::match_f64_default(bottom, -1.0);
+        let top: f64 = Self::match_f64_default(top, 1.0);
 
-        let left: f64 = match left_result{
-            None => 1.0,
-            Some(result) => result,
-        };
-
-        let right: f64 = match right_result{
-            None => 1.0,
-            Some(result) => result,
-        };
-
-        let top: f64 = match top_result{
-            None => 1.0,
-            Some(result) => result,
-        };
-
-        let bottom: f64 = match bottom_result{
-            None => 1.0,
-            Some(result) => result,
-        };
-
-        let (width, height) =  match resolution_result {
+        let (width, height) =  match resolution {
             None => (800, 600),
             Some(resolution) => resolution,
         };
 
-        let back_color = match back_color_result{
+        let back_color = match back_color{
             None => Vector4::vec(1.0, 1.0, 1.0),
             Some(result) => result,
         };
 
-        let amb_color = match amb_color_result{
+        let amb_color = match amb_color{
             None => Vector4::vec(1.0, 1.0, 1.0),
             Some(result) => result,
         };
 
-        let output_ppm_file = match output_file_result {
+        let output_ppm_file = match output_file {
             None => "output.ppm".to_string(),
             Some(result) => result,
         };
