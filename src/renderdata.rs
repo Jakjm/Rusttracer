@@ -241,7 +241,10 @@ impl RenderData{
         let mut lights = Vec::<Light>::new();
 
         let mut near_result: Option<f64> = None;
-        let (mut left_result, mut right_result, mut top_result, mut bottom_result) : (Option<f64>, Option<f64>, Option<f64>, Option<f64>) = (None, None, None, None);
+        let mut left_result: Option<f64> = None;
+        let mut right_result: Option<f64> = None;
+        let mut bottom_result: Option<f64> = None;
+        let mut top_result: Option<f64> = None;
 
         let mut resolution_result : Option<(u32, u32)> = None; 
         
@@ -273,67 +276,37 @@ impl RenderData{
                         Some(resolution) => resolution_result = Some(resolution),
                     }
                 },
-                "NEAR" => {
-                    if near_result.is_some(){
-                        return Err(Error::new(ErrorKind::Other, "Only one line for the near plane is permitted!"));
+                "NEAR" | "LEFT" | "RIGHT" | "BOTTOM" | "TOP"  => {
+                    let (value_reference, should_be_pos) : (&mut Option<f64>, bool) = match first_token {
+                        "NEAR"  => (&mut near_result, true),
+                        "LEFT"  => (&mut left_result, false),
+                        "RIGHT" => (&mut right_result, true),
+                        "BOTTOM" => (&mut bottom_result, false),
+                        "TOP" => (&mut top_result, true),
+                        &_ => return Err(Error::new(ErrorKind::Other, format!("This is an impossible case!"))),
+                    };
+
+                    if (*value_reference).is_some(){
+                        return Err(Error::new(ErrorKind::Other, format!("Only one line for {first_token} is permitted!")));
                     }
-                    match Self::read_scene_param(&tokens, true) {
-                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read near plane from {line}"))),
-                        Some(near) => near_result = Some(near),
+                    match Self::read_scene_param(&tokens, should_be_pos){
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read {first_token} from {line}"))),
+                        Some(value) => *value_reference = Some(value),
                     }
-                },
-                "TOP" => {
-                    if top_result.is_some(){
-                        return Err(Error::new(ErrorKind::Other, "Only one line for top is permitted!"));
-                    }
-                    match Self::read_scene_param(&tokens, true) {
-                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read top from {line}."))),
-                        Some(top) => top_result = Some(top),
-                    }
-                },
-                "BOTTOM" => {
-                    if bottom_result.is_some(){
-                        return Err(Error::new(ErrorKind::Other, "Only one line for bottom is permitted!"));
-                    }
-                    match Self::read_scene_param(&tokens, false) {
-                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read bottom from {line}."))),
-                        Some(bottom) => bottom_result = Some(bottom),
-                    }
-                },
-                "LEFT" => {
-                    if left_result.is_some(){
-                        return Err(Error::new(ErrorKind::Other, "Only one line for left is permitted!"));
-                    }
-                    match Self::read_scene_param(&tokens, false) { 
-                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read left from {line}."))),
-                        Some(left) => left_result = Some(left),    
-                    }
-                },
-                "RIGHT" =>{
-                    if right_result.is_some(){
-                        return Err(Error::new(ErrorKind::Other, "Only one line for right is permitted!"));
-                    }
-                    match Self::read_scene_param(&tokens, true) {
-                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read right from {line}."))),
-                        Some(right) => right_result = Some(right),
-                    }
-                },
-                "BACK" => {
-                    if back_color_result.is_some() {
-                        return Err(Error::new(ErrorKind::Other, "Only one line for background colour permitted!"));
+                }
+                "BACK" | "AMBIENT" => {
+                    let color_reference : &mut Option<Vector4> = match first_token{
+                        "BACK" => &mut back_color_result,
+                        "AMBIENT" => &mut amb_color_result,
+                        &_ => return Err(Error::new(ErrorKind::Other, format!("This is an impossible case!"))),
+                    };
+
+                    if (*color_reference).is_some(){
+                        return Err(Error::new(ErrorKind::Other, format!("Only one line for {first_token} is permitted!")));
                     }
                     match Vector4::vec_from_str_tokens(&tokens){
-                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read background colour from {line}."))),
-                        Some(result) => back_color_result = Some(result),
-                    }
-                },
-                "AMBIENT" =>{
-                    if amb_color_result.is_some() {
-                        return Err(Error::new(ErrorKind::Other, "Only one line for ambient colour permitted!"));
-                    }
-                    match Vector4::vec_from_str_tokens(&tokens) {
-                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read ambient colour from {line}."))),
-                        Some(result) => amb_color_result = Some(result),
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read {first_token} colour from {line}."))),
+                        Some(color) => *color_reference = Some(color),
                     }
                 },
                 "OUTPUT" => {
@@ -341,14 +314,11 @@ impl RenderData{
                         return Err(Error::new(ErrorKind::Other, "Only one line for output file permitted!"));
                     }
                     match tokens.len(){
-                        
                         2 => output_file_result = Some(tokens[1].to_string().trim().to_string()),
                         _ => return Err(Error::new(ErrorKind::Other, format!("Could not read output file from {line}."))),
                     }
                 },
-                &_ => {
-                    return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!"));
-                },
+                &_ => return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!")),
             }
         }
         
@@ -419,7 +389,7 @@ impl fmt::Display for RenderData{
         for light in self.lights.iter(){
             write!(f, "\t-{light}\n")?;
         }
-        write!(f, "\nOutput filename: {}", self.output_ppm_file)?;
+        write!(f, "\nOutput filenames: {} {}", self.output_ppm_file, self.output_png_file)?;
         return Ok(());
     }
 }
