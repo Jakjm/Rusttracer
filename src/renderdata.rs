@@ -194,6 +194,7 @@ impl RenderData{
             }
         }
     }
+    //TODO replace with detailed error messages....
     pub fn read_resolution(tokens: &Vec<&str>) -> Option<(u32, u32)>{
         if tokens.len() != 3 {
             return None;
@@ -212,7 +213,8 @@ impl RenderData{
         }
         return Some((width, height));
     }
-    pub fn read_scene_param(tokens: &Vec<&str>, should_be_pos: bool) -> Option<f64>{
+    //TODO replace with detailed error messages...
+    pub fn read_scene_param(tokens: &Vec<&str>, positive: bool) -> Option<f64>{
         if tokens.len() != 2 {
             return None;
         }
@@ -223,17 +225,12 @@ impl RenderData{
         }
 
         let param_val = result.unwrap();
-        if (should_be_pos && param_val <= 0.0) || (!should_be_pos && param_val >= 0.0) {
+        if (positive && param_val <= 0.0) || (!positive && param_val >= 0.0) {
             return None;
         }
         return Some(param_val);
     }
-    pub fn match_f64_default(option : Option<f64>, default : f64) -> f64{
-        return match option{
-            None => default, 
-            Some(result) => result,
-        };
-    }
+
     pub fn read_from_file(filename: &String) -> Result<Self, io::Error>{
         let path = Path::new(&filename);
         let file_result = File::open(&path);
@@ -246,14 +243,8 @@ impl RenderData{
         let mut spheres = Vec::<Sphere>::new();
         let mut lights = Vec::<Light>::new();
 
-        let mut near: Option<f64> = None;
-        let mut left: Option<f64> = None;
-        let mut right: Option<f64> = None;
-        let mut bottom: Option<f64> = None;
-        let mut top: Option<f64> = None;
-
+        let (mut near, mut left, mut right, mut bottom, mut top) = (None, None, None, None, None);
         let mut resolution : Option<(u32, u32)> = None; 
-        
         let mut amb_color: Option<Vector4> = None;
         let mut back_color: Option<Vector4> = None;
         let mut output_file: Option<String> = None;
@@ -283,19 +274,19 @@ impl RenderData{
                     }
                 },
                 "NEAR" | "LEFT" | "RIGHT" | "BOTTOM" | "TOP"  => {
-                    let (value_reference, should_be_pos) : (&mut Option<f64>, bool) = match first_token {
+                    let (value_reference, positive) : (&mut Option<f64>, bool) = match first_token {
                         "NEAR"  => (&mut near, true),
                         "LEFT"  => (&mut left, false),
                         "RIGHT" => (&mut right, true),
                         "BOTTOM" => (&mut bottom, false),
                         "TOP" => (&mut top, true),
-                        &_ => return Err(Error::new(ErrorKind::Other, format!("This is an impossible case!"))),
+                        &_ => unreachable!(),
                     };
 
                     if (*value_reference).is_some(){
                         return Err(Error::new(ErrorKind::Other, format!("Only one line for {first_token} is permitted!")));
                     }
-                    match Self::read_scene_param(&tokens, should_be_pos){
+                    match Self::read_scene_param(&tokens, positive){
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read {first_token} from {line}"))),
                         Some(value) => *value_reference = Some(value),
                     }
@@ -304,7 +295,7 @@ impl RenderData{
                     let color_reference : &mut Option<Vector4> = match first_token{
                         "BACK" => &mut back_color,
                         "AMBIENT" => &mut amb_color,
-                        &_ => return Err(Error::new(ErrorKind::Other, format!("This is an impossible case!"))),
+                        &_ => unreachable!(),
                     };
 
                     if (*color_reference).is_some(){
@@ -328,31 +319,10 @@ impl RenderData{
             }
         }
         
-        let near: f64 = Self::match_f64_default(near, 1.0);
-        let left: f64 = Self::match_f64_default(left, -1.0);
-        let right: f64 = Self::match_f64_default(right, 1.0);
-        let bottom: f64 = Self::match_f64_default(bottom, -1.0);
-        let top: f64 = Self::match_f64_default(top, 1.0);
-
-        let (width, height) =  match resolution {
-            None => (800, 600),
-            Some(resolution) => resolution,
-        };
-
-        let back_color = match back_color{
-            None => Vector4::vec(1.0, 1.0, 1.0),
-            Some(result) => result,
-        };
-
-        let amb_color = match amb_color{
-            None => Vector4::vec(1.0, 1.0, 1.0),
-            Some(result) => result,
-        };
-
-        let output_ppm_file = match output_file {
-            None => "output.ppm".to_string(),
-            Some(result) => result,
-        };
+        let (near, left, right, bottom, top) = (near.unwrap_or(1.0), left.unwrap_or(-1.0), right.unwrap_or(1.0), bottom.unwrap_or(-1.0), top.unwrap_or(1.0));
+        let (width, height) : (u32, u32) = resolution.unwrap_or((800, 600));
+        let (back_color, amb_color) : (Vector4, Vector4) = (back_color.unwrap_or(Vector4::vec(1.0, 1.0, 1.0)), amb_color.unwrap_or(Vector4::vec(1.0, 1.0, 1.0)));
+        let output_ppm_file = output_file.unwrap_or("output.ppm".to_string());
         let output_png_file = output_ppm_file.trim_end_matches(".ppm").to_string() + ".png";
         
         let capacity = (width * height) as usize;
