@@ -49,14 +49,12 @@ impl RenderData{
         if pnm_encoder.write_image(&rgb_image, self.width, self.height, image::ExtendedColorType::Rgb8).is_err() {
             return Err(Error::new(ErrorKind::Other, format!("Error when writing png file.")));
         }
-        //Originally used the following using this specification:
+        //Originally used the following according to this specification:
         //https://paulbourke.net/dataformats/ppm/
         //If ppm_writer is mutable, can use the following:
         // let opening_string = format!("P6\n{} {}\n{}\n", self.width, self.height, 255);
         // ppm_writer.write_all(opening_string.as_bytes())?; 
         // ppm_writer.write_all(&raw_pixels)?;
-
-        
 
         let png_path = Path::new(&self.output_png_file);
         let png_file = File::create(png_path)?;
@@ -69,96 +67,92 @@ impl RenderData{
         Ok(())
     }
 
-    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(&Sphere,Vector4,Vector4)> {
+    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(&dyn Shape,Vector4,Vector4)> {
         let lowest = std::f64::INFINITY;
-        let mut col_data : Option<(&Sphere,Vector4,Vector4)> = None;
+        let mut col_data = None;
         for sphere in self.spheres.iter(){
             if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, max){
                 if t < lowest{
-                    col_data = Some((sphere, col_pt, normal));
+                    col_data = Some((sphere as &dyn Shape, col_pt, normal));
                 }
             }
         }
         return col_data;
     }
 
-    pub fn compute_light_color(&self, col_pt: &Vector4, ray: &Vector4, normal: &Vector4, sphere: &Sphere) -> Vector4{
-        let mut color = Vector4::zero();
+    pub fn compute_light_color(&self, col_pt: &Vector4, ray: &Vector4, normal: &Vector4, shape: &dyn Shape) -> Vector4{
+        let (shape_color, amb, diff, spec, bright) = shape.lighting_params();
+
+        let mut color = self.amb_color.clone();
+        color *= amb;
+        color *= shape_color;
 
         for light in self.lights.iter(){
             let mut shadow_ray = light.pos.clone();
             shadow_ray -= col_pt;
 
             let mut dot = shadow_ray.dot(normal);
-            if dot < 0.0 {
+            if dot < 0.0 || self.check_collisions(col_pt, &shadow_ray, 0.000000001, 1.0).is_some()  {
                 continue;
             }
 
-            if self.check_collisions(col_pt, &shadow_ray, 0.000000001, 1.0).is_none() {
-                let normal_len_sq = normal.dot(normal);
-                let normal_len = normal_len_sq.sqrt();
-                let shadow_ray_len = shadow_ray.dot(&shadow_ray).sqrt();
+            let normal_len_sq = normal.dot(normal);
+            let normal_len = normal_len_sq.sqrt();
+            let shadow_ray_len = shadow_ray.dot(&shadow_ray).sqrt();
 
-                dot /= shadow_ray_len;
-                dot /= normal_len;
+            dot /= shadow_ray_len;
+            dot /= normal_len;
 
-                let mut diff = light.intensity.clone();
-                diff *= dot;
-                diff *= sphere.diff;
-                diff *= &sphere.color;
+            let mut diff_color = light.intensity.clone();
+            diff_color *= dot;
+            diff_color *= diff;
+            diff_color *= shape_color;
+            color += &diff_color; //Computed and added diffuse light
 
-                color += &diff; //Computed and added diffuse light
+            shadow_ray *= -1.0;
+            let dot = 2.0 * shadow_ray.dot(normal) / normal_len_sq;
+            let mut bounce = normal.clone();
+            bounce *= dot;
 
-                shadow_ray *= -1.0;
-                let dot = 2.0 * shadow_ray.dot(normal) / normal_len_sq;
-                let mut bounce = normal.clone();
-                bounce *= dot;
+            let mut ref_ray = shadow_ray.clone(); //Calculating reflection of shadow ray off shape
+            ref_ray -= &bounce;
+            
+            let mut shininess = -ray.dot(&ref_ray);
+            if shininess > 0.0 && spec > 0.0{
+                shininess /= ray.dot(ray).sqrt();
+                shininess /= ref_ray.dot(&ref_ray).sqrt();
+                shininess = shininess.powf(bright);
 
-                let mut ref_ray = shadow_ray.clone(); //Calculating reflection of shadow ray about the normal of sphere.
-                ref_ray -= &bounce;
-                
-                let mut shininess = -ray.dot(&ref_ray);
-                if shininess > 0.0 && sphere.spec > 0.0{
-                    shininess /= ray.dot(ray).sqrt();
-                    shininess /= ref_ray.dot(&ref_ray).sqrt();
-                    shininess = shininess.powf(sphere.bright);
-
-                    let mut spec = light.intensity.clone();
-                    spec *= shininess;
-                    spec *= sphere.spec;
-                    color += &spec;
-                }
+                let mut spec_color = light.intensity.clone();
+                spec_color *= shininess;
+                spec_color *= spec;
+                color += &spec_color;
             }
         }
         return color;
     }
+
     pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounce_ct : i32) -> Vector4{
-        let mut color = self.back_color.clone();
-        if let Some((sphere, col_pt, normal)) = self.check_collisions(&origin, &ray, min_t, std::f64::INFINITY){
-            color = Vector4::zero();
-            let mut amb_color = self.amb_color.clone();
-            amb_color *= sphere.amb;
-            amb_color *= &sphere.color;
+        let color = match self.check_collisions(&origin, &ray, min_t, std::f64::INFINITY) {
+            None => self.back_color.clone(),
+            Some((shape, col_pt, normal)) => {
+                let mut color = self.compute_light_color(&col_pt, &ray, &normal, shape);
+                if bounce_ct > 0 {
+                    let normal_len_sq = normal.dot(&normal);
+                    let dot = 2.0 * ray.dot(&normal) / normal_len_sq;
+                    let mut bounce = normal.clone();
+                    bounce *= dot;
 
-            color += &amb_color;
+                    let mut refl_ray = ray.clone();
+                    refl_ray -= &bounce;
 
-            let light_color = self.compute_light_color(&col_pt, &ray, &normal, sphere);
-            color += &light_color;
-
-            if bounce_ct > 0 {
-                let normal_len_sq = normal.dot(&normal);
-                let dot = 2.0 * ray.dot(&normal) / normal_len_sq;
-                let mut bounce = normal.clone();
-                bounce *= dot;
-
-                let mut refl_ray = ray.clone();
-                refl_ray -= &bounce;
-
-                let mut refl_color = self.traceray(&col_pt, &refl_ray, 0.0000001, bounce_ct - 1);
-                refl_color *= sphere.refl;
-                color += &refl_color;
-            }
-        }
+                    let mut ref_color = self.traceray(&col_pt, &refl_ray, 0.0000001, bounce_ct - 1);
+                    ref_color *= shape.refl();
+                    color += &ref_color;
+                }
+                color
+            },
+        };
         return color;
     }
     pub fn render(&mut self, extra_points: u32){

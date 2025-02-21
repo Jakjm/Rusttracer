@@ -37,6 +37,8 @@ impl fmt::Display for Light{
 
 pub trait Shape{
     fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64, max:f64) -> Option<(f64,Vector4,Vector4)>;
+    fn lighting_params(&self) -> (&Vector4, f64, f64, f64, f64);
+    fn refl(&self) -> f64; 
 }
 
 pub struct Sphere{
@@ -117,6 +119,12 @@ impl Sphere{
     }
 }
 impl Shape for Sphere{
+    fn lighting_params(&self) -> (&Vector4, f64, f64, f64, f64){
+        return (&self.color, self.amb, self.diff, self.spec, self.bright);
+    }
+    fn refl(&self) -> f64{
+        return self.refl;
+    }
     fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(f64,Vector4,Vector4)>{
         let origin_prime = &self.inv_matrix * origin;
         let ray_prime = &self.inv_matrix * ray;
