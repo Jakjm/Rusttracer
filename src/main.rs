@@ -35,6 +35,7 @@ fn main() -> std::io::Result<()> {
     }
     else{
         let file_name_index: usize;
+        //TODO parse more arguments!
         let sample_amt: u32;
         if args[1] == "-a" {
             file_name_index = 2;
@@ -45,14 +46,15 @@ fn main() -> std::io::Result<()> {
             sample_amt = 0;
         }
 
-        let mut data = RenderData::read_from_file(&args[file_name_index]);
-        if let Ok(file_data) = &mut data {
-            println!("{}", file_data);
-            file_data.render(sample_amt);
-            file_data.save_image();
-        }
-        else if let Err(error) = &data{
-            println!("{error}");
+        match RenderData::read_from_file(&args[file_name_index]){
+            Ok(file_data) => {
+                println!("{}", file_data);
+                //let capacity = (file_data.width * file_data.height) as usize;
+                //let mut array = vec![self.back_color.clone(); capacity];
+                let arrays = file_data.render(sample_amt, 4);
+                file_data.save_image(&arrays);
+            },
+            Err(error) => println!("{error}"),
         }
     }
     Ok(())

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::thread;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::fs::File;
@@ -12,6 +13,7 @@ use crate::elements::Light;
 use image::codecs::pnm::{PnmEncoder, PnmSubtype, SampleEncoding};
 use image::codecs::png::PngEncoder;
 use image::{ImageEncoder, Rgb};
+use crossbeam::scope;
 pub struct RenderData{
     near: f64,
     left: f64,
@@ -24,20 +26,21 @@ pub struct RenderData{
     lights: Vec<Light>,
     back_color: Vector4,
     amb_color: Vector4,
-    array: Vec<Vector4>,
     output_ppm_file: String,
     output_png_file: String,
 }
 
 impl RenderData{
-    pub fn save_image(&self) -> std::io::Result<()>{
+    pub fn save_image(&self, arrays: &Vec<Vec<Vector4>>) -> std::io::Result<()>{
         let capacity = (3 * self.width * self.height) as usize;
         let mut raw_pixels = Vec::<u8>::with_capacity(capacity);
-        for pixel in self.array.iter(){
-            let (red, green, blue) = pixel.to_rgb();
-            raw_pixels.push(red);
-            raw_pixels.push(green);
-            raw_pixels.push(blue);
+        for array in arrays.iter(){
+            for pixel in array.iter(){
+                let (red, green, blue) = pixel.to_rgb();
+                raw_pixels.push(red);
+                raw_pixels.push(green);
+                raw_pixels.push(blue);
+            }
         }
 
         let rgb_image = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_vec(self.width, self.height, raw_pixels).unwrap();
@@ -68,12 +71,13 @@ impl RenderData{
     }
 
     pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(&dyn Shape,Vector4,Vector4)> {
-        let lowest = std::f64::INFINITY;
+        let mut lowest = std::f64::INFINITY;
         let mut col_data = None;
         for sphere in self.spheres.iter(){
             if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, max){
                 if t < lowest{
                     col_data = Some((sphere as &dyn Shape, col_pt, normal));
+                    lowest = t;
                 }
             }
         }
@@ -155,9 +159,11 @@ impl RenderData{
         };
         return color;
     }
-    pub fn render(&mut self, extra_points: u32){
+    pub fn render_slice(&self, start_y: u32, end_y: u32, extra_points : u32) -> Vec<Vector4>{
+        let capacity = self.width * (end_y - start_y);
+        let mut array = Vec::<Vector4>::with_capacity(capacity as usize);
         let eye = Vector4::point(0.0,0.0,0.0);
-        for px_y in 0..self.height{
+        for px_y in start_y..end_y{
             for px_x in 0..self.width{
                 let mut num_samples : f64 = 1.0;
                 let mut average_color = Vector4::vec(0.0, 0.0, 0.0);
@@ -177,16 +183,42 @@ impl RenderData{
 
                     let ray = Vector4::vec(x, y, -self.near);
                     let mut color = self.traceray(&eye, &ray, 1.0000001, 3);
-                    color *= 0.4;
+                    color *= 0.7;
                     average_color += &color;
-                    num_samples += 0.4;
+                    num_samples += 0.7;
 
                 }
 
                 average_color /= num_samples;
-                self.array[(px_y * self.height + px_x) as usize] = average_color;
+                //let index = (px_y - start_y) * self.width + px_x;
+                array.push(average_color);
+                //slice[index as usize] = average_color;
             }
         }
+        return array;
+    }
+    pub fn render(&self, extra_points: u32, thread_count: u32) -> Vec<Vec<Vector4>>{
+        let frac = self.height / thread_count;
+        let arrays = scope(|s| {
+            let mut arrays = Vec::<Vec<Vector4>>::with_capacity(thread_count as usize);
+            let mut handles = Vec::with_capacity((thread_count - 1) as usize);
+            for t in 0..(thread_count - 1) {
+                let start_y = t * frac;
+                let end_y = start_y + frac;
+                let handle = s.spawn(move |_| {
+                    self.render_slice(start_y, end_y, extra_points)
+                });
+                handles.push(handle);
+            }
+            let last_array = self.render_slice((thread_count - 1) * frac, self.height, extra_points);
+            for handle in handles{
+                let array : Vec<Vector4> = handle.join().unwrap();
+                arrays.push(array);
+            }
+            arrays.push(last_array);
+            return arrays;
+        }).unwrap();
+        return arrays;
     }
     //TODO replace with detailed error messages....
     pub fn read_resolution(tokens: &Vec<&str>) -> Option<(u32, u32)>{
@@ -319,10 +351,8 @@ impl RenderData{
         let output_ppm_file = output_file.unwrap_or("output.ppm".to_string());
         let output_png_file = output_ppm_file.trim_end_matches(".ppm").to_string() + ".png";
         
-        let capacity = (width * height) as usize;
-        let array : Vec<Vector4> = vec![back_color.clone(); capacity];
         let result = Self{near, left, right, bottom, top, width, height, 
-            spheres, lights, back_color, amb_color, array, output_ppm_file, output_png_file};
+            spheres, lights, back_color, amb_color, output_ppm_file, output_png_file};
         return Ok(result);
     }
 }
