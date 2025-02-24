@@ -39,7 +39,7 @@ fn main() -> std::io::Result<()> {
         let sample_amt: u32;
         if args[1] == "-a" {
             file_name_index = 2;
-            sample_amt = 4;
+            sample_amt = 8;
         }
         else{
             file_name_index = 1;
