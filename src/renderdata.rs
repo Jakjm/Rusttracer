@@ -31,18 +31,8 @@ pub struct RenderData{
 }
 
 impl RenderData{
-    pub fn save_image(&self, arrays: &Vec<Vec<Vector4>>) -> std::io::Result<()>{
+    pub fn save_image(&self, raw_pixels: Vec<u8>) -> std::io::Result<()>{
         let capacity = (3 * self.width * self.height) as usize;
-        let mut raw_pixels = Vec::<u8>::with_capacity(capacity);
-        for array in arrays.iter(){
-            for pixel in array.iter(){
-                let (red, green, blue) = pixel.to_rgb();
-                raw_pixels.push(red);
-                raw_pixels.push(green);
-                raw_pixels.push(blue);
-            }
-        }
-
         let rgb_image = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_vec(self.width, self.height, raw_pixels).unwrap();
 
         let ppm_path = Path::new(&self.output_ppm_file);
@@ -74,11 +64,9 @@ impl RenderData{
         let mut lowest = std::f64::INFINITY;
         let mut col_data = None;
         for sphere in self.spheres.iter(){
-            if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, max){
-                if t < lowest{
-                    col_data = Some((sphere as &dyn Shape, col_pt, normal));
-                    lowest = t;
-                }
+            if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, lowest){
+                col_data = Some((sphere as &dyn Shape, col_pt, normal));
+                lowest = t;
             }
         }
         return col_data;
@@ -159,9 +147,7 @@ impl RenderData{
         };
         return color;
     }
-    pub fn render_slice(&self, start_y: u32, end_y: u32, extra_points : u32) -> Vec<Vector4>{
-        let capacity = self.width * (end_y - start_y);
-        let mut array = Vec::<Vector4>::with_capacity(capacity as usize);
+    pub fn render_slice(&self, slice: &mut [u8], start_y: u32, end_y: u32, extra_points : u32){
         let eye = Vector4::point(0.0,0.0,0.0);
         for px_y in start_y..end_y{
             for px_x in 0..self.width{
@@ -190,35 +176,54 @@ impl RenderData{
                 }
 
                 average_color /= num_samples;
-                //let index = (px_y - start_y) * self.width + px_x;
-                array.push(average_color);
-                //slice[index as usize] = average_color;
+                let index: usize = 3 * ((px_y - start_y) * self.width + px_x) as usize;
+                let (red, green, blue) = average_color.to_rgb();
+                slice[index] = red;
+                slice[index + 1] = green;
+                slice[index + 2] = blue;
             }
         }
-        return array;
     }
-    pub fn render(&self, extra_points: u32, thread_count: u32) -> Vec<Vec<Vector4>>{
-        let frac = self.height / thread_count;
-        let arrays = scope(|s| {
-            let mut arrays = Vec::<Vec<Vector4>>::with_capacity(thread_count as usize);
-            let mut handles = Vec::with_capacity((thread_count - 1) as usize);
+    fn split_into_equal_chunks<T>(mut vec: &mut [T], n: usize) -> Vec<&mut [T]>{
+        let chunk_size = vec.len() / n;
+
+        let mut result = Vec::<&mut [T]>::with_capacity(n);
+        for i in 0..(n - 1){
+            let (left, right) = vec.split_at_mut(chunk_size);
+            result.push(left);
+            vec = right;
+        }
+        result.push(vec);
+        return result;
+    }
+    pub fn render(&self, extra_points: u32, thread_count: usize) -> Vec<u8>{
+        let frac = self.height / thread_count as u32;
+        let capacity: usize = (3 * self.width * self.height) as usize;
+        let mut array = Vec::<u8>::with_capacity(capacity);
+        unsafe{
+            array.set_len(capacity);
+        }
+        let mut chunks = Self::split_into_equal_chunks(&mut array, thread_count);
+        scope(|s| {
+            let mut handles = Vec::with_capacity(thread_count - 1);
+            let chunk_size = 3 * self.width * frac;
+            let mut iter = chunks.iter_mut();
             for t in 0..(thread_count - 1) {
-                let start_y = t * frac;
-                let end_y = start_y + frac;
+                let start_y : u32 = t as u32 * frac;
+                let end_y : u32  = start_y + frac;
+                let slice = iter.next().unwrap();
                 let handle = s.spawn(move |_| {
-                    self.render_slice(start_y, end_y, extra_points)
+                    self.render_slice(slice, start_y, end_y, extra_points);
                 });
                 handles.push(handle);
             }
-            let last_array = self.render_slice((thread_count - 1) * frac, self.height, extra_points);
+            let slice = iter.next().unwrap();
+            self.render_slice(slice, (thread_count as u32 - 1) * frac, self.height, extra_points);
             for handle in handles{
-                let array : Vec<Vector4> = handle.join().unwrap();
-                arrays.push(array);
+                let _result = handle.join();
             }
-            arrays.push(last_array);
-            return arrays;
-        }).unwrap();
-        return arrays;
+        });
+        return array;
     }
     //TODO replace with detailed error messages....
     pub fn read_resolution(tokens: &Vec<&str>) -> Option<(u32, u32)>{

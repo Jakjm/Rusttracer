@@ -51,8 +51,8 @@ fn main() -> std::io::Result<()> {
                 println!("{}", file_data);
                 //let capacity = (file_data.width * file_data.height) as usize;
                 //let mut array = vec![self.back_color.clone(); capacity];
-                let arrays = file_data.render(sample_amt, 4);
-                file_data.save_image(&arrays);
+                let array = file_data.render(sample_amt, 4);
+                file_data.save_image(array);
             },
             Err(error) => println!("{error}"),
         }
