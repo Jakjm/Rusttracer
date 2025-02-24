@@ -52,7 +52,7 @@ fn main() -> std::io::Result<()> {
                 //let capacity = (file_data.width * file_data.height) as usize;
                 //let mut array = vec![self.back_color.clone(); capacity];
                 let array = file_data.render(sample_amt, 4);
-                file_data.save_image(array);
+                let _ = file_data.save_image(array);
             },
             Err(error) => println!("{error}"),
         }

@@ -87,20 +87,22 @@ impl Matrix4{
         let mut clone = self.clone();
 
         for row in 0..4{
-            let coeff = 1.0 / clone.m[row * 4 + row];
+            let row_start = row * 4;
+            let coeff = 1.0 / clone.m[row_start + row];
             for col in 0..4{
-                clone.m[row * 4 + col] *= coeff;
-                inverse.m[row * 4 + col] *= coeff;
+                clone.m[row_start + col] *= coeff;
+                inverse.m[row_start + col] *= coeff;
             }
 
             for other_row in 0..4{
                 if other_row == row{
                     continue
                 }
-                let coeff = clone.m[other_row * 4 + row];
+                let other_row_start = other_row * 4;
+                let coeff = clone.m[other_row_start + row];
                 for col in 0..4{
-                    clone.m[other_row * 4 + col] -= coeff * clone.m[row * 4 + col];
-                    inverse.m[other_row * 4 + col] -= coeff * inverse.m[row * 4 + col];
+                    clone.m[other_row_start + col] -= coeff * clone.m[row_start + col];
+                    inverse.m[other_row_start + col] -= coeff * inverse.m[row_start + col];
                 }
             }
         }
@@ -125,7 +127,7 @@ impl ops::Mul<&Matrix4> for &Matrix4{
                 for i in 0..4{
                     sum += self.m[row_start + i]  * rhs.m[col + 4*i];
                 }
-                prod[row * 4 + col] = sum;
+                prod[row_start + col] = sum;
             }
         }
         return Matrix4::raw(prod);
@@ -194,31 +196,9 @@ impl Vector4{
         return Self{arr:[x,y,z,0.0]};
     }
     pub fn to_rgb(&self) -> (u8, u8, u8){
-        let mut red = self.arr[0];
-        if red < 0.0{
-            red = 0.0;
-        }
-        else if red > 1.0 {
-            red = 1.0;
-        }
-        let mut green = self.arr[1];
-        if green < 0.0{
-            green = 0.0;
-        }
-        else if green > 1.0{
-            green = 1.0;
-        }
-
-        let mut blue = self.arr[2];
-        if blue < 0.0{
-            blue = 0.0;
-        }
-        else if blue > 1.0{
-            blue = 1.0;
-        }
-        let red = (255.0 * red) as u8;
-        let green = (255.0 * green) as u8;
-        let blue = (255.0 * blue) as u8;
+        let red = (255.0 * self.arr[0]) as u8;
+        let green = (255.0 * self.arr[1]) as u8;
+        let blue = (255.0 * self.arr[2]) as u8;
         return (red, green, blue);
     }
     pub fn vec_from_slice(slice: &[f64]) -> Self{

@@ -1,5 +1,4 @@
 use std::fmt;
-use std::thread;
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::fs::File;
@@ -32,7 +31,6 @@ pub struct RenderData{
 
 impl RenderData{
     pub fn save_image(&self, raw_pixels: Vec<u8>) -> std::io::Result<()>{
-        let capacity = (3 * self.width * self.height) as usize;
         let rgb_image = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_vec(self.width, self.height, raw_pixels).unwrap();
 
         let ppm_path = Path::new(&self.output_ppm_file);
@@ -61,7 +59,7 @@ impl RenderData{
     }
 
     pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(&dyn Shape,Vector4,Vector4)> {
-        let mut lowest = std::f64::INFINITY;
+        let mut lowest = max;
         let mut col_data = None;
         for sphere in self.spheres.iter(){
             if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, lowest){
@@ -69,7 +67,15 @@ impl RenderData{
                 lowest = t;
             }
         }
-        return col_data;
+
+        return match col_data {
+            None => None,
+            Some((shape, col_pt, mut normal)) => {
+                let len_sq = normal.dot(&normal);
+                normal /= len_sq.sqrt();
+                Some((shape, col_pt, normal))
+            }
+        };
     }
 
     pub fn compute_light_color(&self, col_pt: &Vector4, ray: &Vector4, normal: &Vector4, shape: &dyn Shape) -> Vector4{
@@ -88,12 +94,8 @@ impl RenderData{
                 continue;
             }
 
-            let normal_len_sq = normal.dot(normal);
-            let normal_len = normal_len_sq.sqrt();
             let shadow_ray_len = shadow_ray.dot(&shadow_ray).sqrt();
-
             dot /= shadow_ray_len;
-            dot /= normal_len;
 
             let mut diff_color = light.intensity.clone();
             diff_color *= dot;
@@ -102,7 +104,7 @@ impl RenderData{
             color += &diff_color; //Computed and added diffuse light
 
             shadow_ray *= -1.0;
-            let dot = 2.0 * shadow_ray.dot(normal) / normal_len_sq;
+            let dot = 2.0 * shadow_ray.dot(normal);
             let mut bounce = normal.clone();
             bounce *= dot;
 
@@ -130,8 +132,7 @@ impl RenderData{
             Some((shape, col_pt, normal)) => {
                 let mut color = self.compute_light_color(&col_pt, &ray, &normal, shape);
                 if bounce_ct > 0 {
-                    let normal_len_sq = normal.dot(&normal);
-                    let dot = 2.0 * ray.dot(&normal) / normal_len_sq;
+                    let dot = 2.0 * ray.dot(&normal);
                     let mut bounce = normal.clone();
                     bounce *= dot;
 
@@ -188,7 +189,7 @@ impl RenderData{
         let chunk_size = vec.len() / n;
 
         let mut result = Vec::<&mut [T]>::with_capacity(n);
-        for i in 0..(n - 1){
+        for _i in 0..(n - 1){
             let (left, right) = vec.split_at_mut(chunk_size);
             result.push(left);
             vec = right;
@@ -204,9 +205,8 @@ impl RenderData{
             array.set_len(capacity);
         }
         let mut chunks = Self::split_into_equal_chunks(&mut array, thread_count);
-        scope(|s| {
+        let _ = scope(|s| {
             let mut handles = Vec::with_capacity(thread_count - 1);
-            let chunk_size = 3 * self.width * frac;
             let mut iter = chunks.iter_mut();
             for t in 0..(thread_count - 1) {
                 let start_y : u32 = t as u32 * frac;
