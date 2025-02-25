@@ -5,10 +5,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter};
 //use std::io::{Write}
 use std::path::Path;
-use crate::elements::Shape;
 use crate::matrix::Vector4;
-use crate::elements::Sphere;
-use crate::elements::Light;
+use crate::elements::{Shape, Cube, Sphere, Light};
 use image::codecs::pnm::{PnmEncoder, PnmSubtype, SampleEncoding};
 use image::codecs::png::PngEncoder;
 use image::{ImageEncoder, Rgb};
@@ -22,13 +20,14 @@ pub struct RenderData{
     width: u32, 
     height: u32,
     spheres: Vec<Sphere>,
+    cubes: Vec<Cube>,
     lights: Vec<Light>,
     back_color: Vector4,
     amb_color: Vector4,
     output_ppm_file: String,
     output_png_file: String,
 }
-
+const NUM_BOUNCES : i32 = 3;
 impl RenderData{
     pub fn save_image(&self, raw_pixels: Vec<u8>) -> std::io::Result<()>{
         let rgb_image = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_vec(self.width, self.height, raw_pixels).unwrap();
@@ -58,22 +57,34 @@ impl RenderData{
         Ok(())
     }
 
-    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64) -> Option<(&dyn Shape,Vector4,Vector4)> {
+    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64, print_check : bool) -> Option<(&dyn Shape, f64, Vector4,Vector4)> {
         let mut lowest = max;
         let mut col_data = None;
+        if print_check {
+            println!("\n\nOrigin: {origin} Ray: {ray} Min: {min} Max: {max}");
+        }
         for sphere in self.spheres.iter(){
-            if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, lowest){
-                col_data = Some((sphere as &dyn Shape, col_pt, normal));
+            if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, lowest, print_check){
+                col_data = Some((sphere as &dyn Shape, t, col_pt, normal));
+                lowest = t;
+            }
+        }
+        for cube in self.cubes.iter(){
+            if let Some((t, col_pt, normal)) = cube.check_collision(origin, ray, min, lowest, print_check){
+                col_data = Some((cube as &dyn Shape, t, col_pt, normal));
                 lowest = t;
             }
         }
 
         return match col_data {
             None => None,
-            Some((shape, col_pt, mut normal)) => {
+            Some((shape, t, col_pt, mut normal)) => {
+                if print_check {
+                    println!("Col_pt: {col_pt} Normal: {normal}");
+                }
                 let len_sq = normal.dot(&normal);
                 normal /= len_sq.sqrt();
-                Some((shape, col_pt, normal))
+                Some((shape, t, col_pt, normal))
             }
         };
     }
@@ -90,13 +101,13 @@ impl RenderData{
             shadow_ray -= col_pt;
 
             let mut dot = shadow_ray.dot(normal);
-            if dot < 0.0 || self.check_collisions(col_pt, &shadow_ray, 0.000000001, 1.0).is_some()  {
+            if dot < 0.0 || self.check_collisions(col_pt, &shadow_ray, 0.000000001, 1.0, false).is_some()  {
                 continue;
             }
 
             let shadow_ray_len = shadow_ray.dot(&shadow_ray).sqrt();
             dot /= shadow_ray_len;
-
+            //println!("{dot} {shadow_ray_len} {normal}");
             let mut diff_color = light.intensity.clone();
             diff_color *= dot;
             diff_color *= diff;
@@ -125,21 +136,33 @@ impl RenderData{
         }
         return color;
     }
-
-    pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounce_ct : i32) -> Vector4{
-        let color = match self.check_collisions(&origin, &ray, min_t, std::f64::INFINITY) {
-            None => self.back_color.clone(),
-            Some((shape, col_pt, normal)) => {
+    
+    pub fn traceray(&self, origin :&Vector4, ray: &Vector4, min_t:f64, bounce_ct : i32, print_check: bool) -> Vector4{
+        let color = match self.check_collisions(&origin, &ray, min_t, std::f64::INFINITY, print_check) {
+            None => match bounce_ct < NUM_BOUNCES { //If this is a bounced ray, return black if there were no collisions.
+                true => Vector4::vec(0.0, 0.0, 0.0),
+                false => self.back_color.clone(),
+            },
+            Some((shape, t, col_pt, normal)) => {
+                let mut scaled_ray = ray.clone();
+                scaled_ray *= t;
+                let ray = scaled_ray;
                 let mut color = self.compute_light_color(&col_pt, &ray, &normal, shape);
                 if bounce_ct > 0 {
+                    if print_check {
+                        println!("Ray: {ray} DotProduct: {} Collision point: {col_pt}", ray.dot(&normal));
+                    }
                     let dot = 2.0 * ray.dot(&normal);
-                    let mut bounce = normal.clone();
+                    let mut bounce = normal;
                     bounce *= dot;
 
                     let mut refl_ray = ray.clone();
                     refl_ray -= &bounce;
 
-                    let mut ref_color = self.traceray(&col_pt, &refl_ray, 0.0000001, bounce_ct - 1);
+                    if print_check {
+                        println!("Refl ray: {refl_ray}");
+                    }
+                    let mut ref_color = self.traceray(&col_pt, &refl_ray, 0.0000001, bounce_ct - 1, false);
                     ref_color *= shape.refl();
                     color += &ref_color;
                 }
@@ -155,10 +178,11 @@ impl RenderData{
                 let mut num_samples : f64 = 1.0;
                 let mut average_color = Vector4::vec(0.0, 0.0, 0.0);
 
+                let print_check = px_x == 850 && px_y == 850;
                 let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + 0.5) / self.width as f64);
                 let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + 0.5) / self.height as f64);
                 let ray = Vector4::vec(x,y, -self.near); //Ray directly in the center of pixel at (x,y).
-                let color = self.traceray(&eye, &ray, 1.0000001, 3);
+                let color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, print_check);
                 average_color += &color;
 
                 for i in 0..extra_points{
@@ -169,7 +193,7 @@ impl RenderData{
                     let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + variance_y) / self.height as f64);
 
                     let ray = Vector4::vec(x, y, -self.near);
-                    let mut color = self.traceray(&eye, &ray, 1.0000001, 3);
+                    let mut color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, print_check);
                     color *= 0.7;
                     average_color += &color;
                     num_samples += 0.7;
@@ -272,6 +296,7 @@ impl RenderData{
         let lines = (&mut reader).lines();
         
         let mut spheres = Vec::<Sphere>::new();
+        let mut cubes = Vec::<Cube>::new();
         let mut lights = Vec::<Light>::new();
 
         let (mut near, mut left, mut right, mut bottom, mut top) = (None, None, None, None, None);
@@ -281,12 +306,21 @@ impl RenderData{
         let mut output_file: Option<String> = None;
         for line in lines.map_while(Result::ok){
             let tokens: Vec<&str> = line.split_whitespace().collect();
+            if tokens.len() <= 0 {
+                continue;
+            }
             let first_token = tokens[0];
             match first_token {
                 "SPHERE" => {
                     match Sphere::read_from_tokens(&tokens) {
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read sphere from {line}."))),
                         Some(sphere) => spheres.push(sphere),
+                    }
+                },
+                "CUBE" => {
+                    match Cube::read_from_tokens(&tokens) {
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read sphere from {line}."))),
+                        Some(cube) => cubes.push(cube),
                     }
                 },
                 "LIGHT" => {
@@ -346,7 +380,7 @@ impl RenderData{
                         _ => return Err(Error::new(ErrorKind::Other, format!("Could not read output file from {line}."))),
                     }
                 },
-                &_ => return Err(Error::new(ErrorKind::Other, "Unrecognized token in file!")),
+                &_ => continue,
             }
         }
         
@@ -357,7 +391,7 @@ impl RenderData{
         let output_png_file = output_ppm_file.trim_end_matches(".ppm").to_string() + ".png";
         
         let result = Self{near, left, right, bottom, top, width, height, 
-            spheres, lights, back_color, amb_color, output_ppm_file, output_png_file};
+            spheres, cubes, lights, back_color, amb_color, output_ppm_file, output_png_file};
         return Ok(result);
     }
 }
@@ -368,6 +402,9 @@ impl fmt::Display for RenderData{
         write!(f, "Near plane: {}, Horizontal range: {{{},{}}} Vertical range: {{{},{}}}\n", self.near, self.left, self.right, self.bottom, self.top)?;
         write!(f, "Back colour: {}, Ambient colour:{}\n", self.back_color, self.amb_color)?;
         write!(f, "\nShapes:\n")?;
+        for cube in self.cubes.iter() {
+            write!(f, "\t-{cube}\n")?;
+        }
         for sphere in self.spheres.iter() {
             write!(f, "\t-{sphere}\n")?;
         }

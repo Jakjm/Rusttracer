@@ -1,0 +1,25 @@
+~~~~~ Printing processed inputs ~~~~~
+
+Input file: testCube.txt
+
+Viewing Planes: Near 1.00 Left -1.00 Right 1.00 Bottom -1.00 Top 1.00
+Picture Resolution (Width x Height): 2000x2000 
+
+
+Light name: l1 Position(0.0 0.0 0.0)
+	 Intensity red: 1.0 green: 1.0 blue :1.0
+
+
+Cube Position(0.0 -0.0 -2.0)
+
+Back Color: (0.6 0.5 0.4)
+Ambient Light: red: 0.2 green: 0.2 blue: 0.2
+
+Output File: cube.ppm
+
+~~~~~ Completed reading file ~~~~~
+Saving image cube.ppm: 2000 x 2000
+Summary of runtime
+Parsing: 0.075 ms
+Rendering: 913.473 ms
+Save time: 9.138 ms
