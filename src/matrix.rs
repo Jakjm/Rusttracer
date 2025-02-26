@@ -196,9 +196,10 @@ impl Vector4{
         return Self{arr:[x,y,z,0.0]};
     }
     pub fn to_rgb(&self) -> (u8, u8, u8){
-        let red = (255.0 * self.arr[0]) as u8;
-        let green = (255.0 * self.arr[1]) as u8;
-        let blue = (255.0 * self.arr[2]) as u8;
+        let (red, green, blue) = (self.arr[0], self.arr[1], self.arr[2]);
+        let red = (255.0 * red.clamp(0.0, 1.0)) as u8;
+        let green = (255.0 * green.clamp(0.0, 1.0)) as u8;
+        let blue = (255.0 * blue.clamp(0.0, 1.0)) as u8;
         return (red, green, blue);
     }
     pub fn vec_from_slice(slice: &[f64]) -> Self{

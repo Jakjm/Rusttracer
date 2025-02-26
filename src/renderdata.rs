@@ -57,34 +57,28 @@ impl RenderData{
         Ok(())
     }
 
-    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64, print_check : bool) -> Option<(&dyn Shape, f64, Vector4,Vector4)> {
+    pub fn check_collisions(&self, origin: &Vector4, ray: &Vector4, min: f64, max: f64, _print_check : bool) -> Option<(&dyn Shape, Vector4,Vector4)> {
         let mut lowest = max;
         let mut col_data = None;
-        if print_check {
-            println!("\n\nOrigin: {origin} Ray: {ray} Min: {min} Max: {max}");
-        }
         for sphere in self.spheres.iter(){
-            if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, lowest, print_check){
-                col_data = Some((sphere as &dyn Shape, t, col_pt, normal));
+            if let Some((t, col_pt, normal)) = sphere.check_collision(origin, ray, min, lowest, _print_check){
+                col_data = Some((sphere as &dyn Shape, col_pt, normal));
                 lowest = t;
             }
         }
         for cube in self.cubes.iter(){
-            if let Some((t, col_pt, normal)) = cube.check_collision(origin, ray, min, lowest, print_check){
-                col_data = Some((cube as &dyn Shape, t, col_pt, normal));
+            if let Some((t, col_pt, normal)) = cube.check_collision(origin, ray, min, lowest, _print_check){
+                col_data = Some((cube as &dyn Shape, col_pt, normal));
                 lowest = t;
             }
         }
 
         return match col_data {
             None => None,
-            Some((shape, t, col_pt, mut normal)) => {
-                if print_check {
-                    println!("Col_pt: {col_pt} Normal: {normal}");
-                }
+            Some((shape, col_pt, mut normal)) => {
                 let len_sq = normal.dot(&normal);
                 normal /= len_sq.sqrt();
-                Some((shape, t, col_pt, normal))
+                Some((shape, col_pt, normal))
             }
         };
     }
@@ -143,15 +137,9 @@ impl RenderData{
                 true => Vector4::vec(0.0, 0.0, 0.0),
                 false => self.back_color.clone(),
             },
-            Some((shape, t, col_pt, normal)) => {
-                let mut scaled_ray = ray.clone();
-                scaled_ray *= t;
-                let ray = scaled_ray;
+            Some((shape, col_pt, normal)) => {
                 let mut color = self.compute_light_color(&col_pt, &ray, &normal, shape);
                 if bounce_ct > 0 {
-                    if print_check {
-                        println!("Ray: {ray} DotProduct: {} Collision point: {col_pt}", ray.dot(&normal));
-                    }
                     let dot = 2.0 * ray.dot(&normal);
                     let mut bounce = normal;
                     bounce *= dot;
@@ -159,9 +147,6 @@ impl RenderData{
                     let mut refl_ray = ray.clone();
                     refl_ray -= &bounce;
 
-                    if print_check {
-                        println!("Refl ray: {refl_ray}");
-                    }
                     let mut ref_color = self.traceray(&col_pt, &refl_ray, 0.0000001, bounce_ct - 1, false);
                     ref_color *= shape.refl();
                     color += &ref_color;
@@ -178,11 +163,11 @@ impl RenderData{
                 let mut num_samples : f64 = 1.0;
                 let mut average_color = Vector4::vec(0.0, 0.0, 0.0);
 
-                let print_check = px_x == 850 && px_y == 850;
+                let _print_check = false;
                 let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + 0.5) / self.width as f64);
                 let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + 0.5) / self.height as f64);
                 let ray = Vector4::vec(x,y, -self.near); //Ray directly in the center of pixel at (x,y).
-                let color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, print_check);
+                let color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, _print_check);
                 average_color += &color;
 
                 for i in 0..extra_points{
@@ -193,7 +178,7 @@ impl RenderData{
                     let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + variance_y) / self.height as f64);
 
                     let ray = Vector4::vec(x, y, -self.near);
-                    let mut color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, print_check);
+                    let mut color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, _print_check);
                     color *= 0.7;
                     average_color += &color;
                     num_samples += 0.7;

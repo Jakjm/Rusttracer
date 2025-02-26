@@ -204,16 +204,12 @@ impl Shape for Cube{
     fn refl(&self) -> f64{
         return self.refl;
     }
-    fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64, mut max: f64, print_check : bool) -> Option<(f64,Vector4,Vector4)>{
+    fn check_collision(&self, origin: &Vector4, ray: &Vector4, min: f64, mut max: f64, _print_check : bool) -> Option<(f64,Vector4,Vector4)>{
         let origin_prime = &self.inv_matrix * origin;
         let ray_prime = &self.inv_matrix * ray;
         let mut col_data = None;
         let normals = vec![Vector4::vec(-1.0,0.0,0.0), Vector4::vec(1.0,0.0,0.0), Vector4::vec(0.0,-1.0,0.0), Vector4::vec(0.0,1.0,0.0), Vector4::vec(0.0,0.0,-1.0), Vector4::vec(0.0,0.0,1.0)];
 
-        if print_check {
-            //println!("Matrix: {}", &self.inv_matrix);
-            println!("Origin: {origin} Ray: {ray} OriginPr: {origin_prime} RayPr: {ray_prime}");
-        }
         for i in 0..6{
             let ray_proj = ray_prime.dot(&normals[i]);
             let origin_proj = origin_prime.dot(&normals[i]);
@@ -221,7 +217,6 @@ impl Shape for Cube{
             let distance = surface_proj - origin_proj;
 
             let t = distance / ray_proj;
-            //println!("{t} {min} {max}!");
             if t <= min || t >= max{
                 continue;
             }
