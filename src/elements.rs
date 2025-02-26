@@ -41,6 +41,7 @@ pub trait Shape{
     fn refl(&self) -> f64; 
 }
 
+const CUBE_NORMAL_PRIMES : [Vector4; 6] = [Vector4::vec(-1.0,0.0,0.0), Vector4::vec(1.0,0.0,0.0), Vector4::vec(0.0,-1.0,0.0), Vector4::vec(0.0,1.0,0.0), Vector4::vec(0.0,0.0,-1.0), Vector4::vec(0.0,0.0,1.0)];
 pub struct Cube{
     pos: Vector4,
     scale: Vector4,
@@ -55,6 +56,7 @@ pub struct Cube{
     pub spec: f64,
     pub refl: f64,
     pub bright: f64,
+    pub normals: [Vector4; 6],
 }
 
 
@@ -111,13 +113,20 @@ impl Cube {
         let inv_matrix = inv_matrix.inverse();
         let inv_transp = inv_matrix.transpose();
 
+        let mut normals : [Vector4; 6] = [Vector4::zero(); 6];
+        for (normal, normal_prime) in normals.iter_mut().zip(CUBE_NORMAL_PRIMES.iter()){
+            let mut new_vec = &inv_transp * normal_prime;
+            new_vec.force_point();
+            *normal = new_vec;
+        }
+
         let lighting_values = &parsed_tokens[lighting_param_start..];
         let amb = lighting_values[0];
         let diff = lighting_values[1];
         let spec = lighting_values[2];
         let refl = lighting_values[3];
         let bright = lighting_values[4];
-        return Some(Self{pos, scale, inv_matrix, inv_transp, r_x, r_y, r_z, color, amb, diff, spec, refl, bright});
+        return Some(Self{pos, scale, inv_matrix, inv_transp, r_x, r_y, r_z, color, amb, diff, spec, refl, bright, normals});
     }
 }
 pub struct Sphere{
@@ -208,11 +217,10 @@ impl Shape for Cube{
         let origin_prime = &self.inv_matrix * origin;
         let ray_prime = &self.inv_matrix * ray;
         let mut col_data = None;
-        let normals = vec![Vector4::vec(-1.0,0.0,0.0), Vector4::vec(1.0,0.0,0.0), Vector4::vec(0.0,-1.0,0.0), Vector4::vec(0.0,1.0,0.0), Vector4::vec(0.0,0.0,-1.0), Vector4::vec(0.0,0.0,1.0)];
 
         for i in 0..6{
-            let ray_proj = ray_prime.dot(&normals[i]);
-            let origin_proj = origin_prime.dot(&normals[i]);
+            let ray_proj = ray_prime.dot(&CUBE_NORMAL_PRIMES[i]);
+            let origin_proj = origin_prime.dot(&CUBE_NORMAL_PRIMES[i]);
             let surface_proj = 1.0;
             let distance = surface_proj - origin_proj;
 
@@ -221,7 +229,7 @@ impl Shape for Cube{
                 continue;
             }
             
-            let mut col_pt_prime = ray_prime.clone();
+            let mut col_pt_prime = ray_prime;
             col_pt_prime *= t;
             col_pt_prime += &origin_prime;
 
@@ -232,23 +240,20 @@ impl Shape for Cube{
             };
             if -1.0 <= dim_one && dim_one <= 1.0 && -1.0 <= dim_two && dim_two <= 1.0{
                 max = t;
-                let normal_copy : Vector4 = match ray_proj >= 0.0{
+                let normal : Vector4 = match ray_proj >= 0.0{
                     true => {
                         match i % 2 {
-                            0 => normals[i + 1].clone(),
-                            _ => normals[i - 1].clone(),
+                            0 => self.normals[i + 1].clone(),
+                            _ => self.normals[i - 1].clone(),
                         }
                     },
-                    false => normals[i].clone(),
+                    false => self.normals[i].clone(),
                 };
-                
                 let mut col_pt = ray.clone();
                 col_pt *= t;
                 col_pt += &origin;
                 col_pt.force_point(); 
-                let mut normal = &self.inv_transp * &normal_copy;
-                normal.force_vec();
-                
+
                 col_data = Some((t, col_pt, normal));
             }
         }
@@ -268,7 +273,8 @@ impl Shape for Sphere{
         
         let a = ray_prime.dot(&ray_prime);
         let b = origin_prime.dot(&ray_prime);
-        let c = origin_prime.dot(&origin_prime) - 1.0;
+        let origin_len_sq = origin_prime.dot(&origin_prime);
+        let c = origin_len_sq - 1.0;
 
         let det = b * b - a * c;
         if det >= 0.0{
@@ -292,7 +298,7 @@ impl Shape for Sphere{
                 col_pt_prime *= t;
                 col_pt_prime += &origin_prime;
     
-                if ray_prime.dot(&ray_prime) > origin_prime.dot(&origin_prime) {
+                if a > origin_len_sq {
                     col_pt_prime *= -1.0;
                 }
                 col_pt_prime.force_vec();

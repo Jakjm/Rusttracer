@@ -157,8 +157,9 @@ impl fmt::Display for Matrix4{
         return Ok(());
     }
 }
-
+#[derive(Copy)]
 pub struct Vector4{
+    pub
     arr: [f64; 4],
 }
 impl Vector4{
@@ -192,7 +193,7 @@ impl Vector4{
     pub fn point(x: f64, y: f64, z:f64) -> Self{
         return Self{arr:[x,y,z,1.0]};
     }
-    pub fn vec(x: f64, y: f64, z:f64) -> Self{
+    pub const fn vec(x: f64, y: f64, z:f64) -> Self {
         return Self{arr:[x,y,z,0.0]};
     }
     pub fn to_rgb(&self) -> (u8, u8, u8){

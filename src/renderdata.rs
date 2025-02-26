@@ -158,26 +158,29 @@ impl RenderData{
     }
     pub fn render_slice(&self, slice: &mut [u8], start_y: u32, end_y: u32, extra_points : u32){
         let eye = Vector4::point(0.0,0.0,0.0);
+        let pixel_width = (self.right - self.left) / self.width as f64;
+        let pixel_height = (self.top - self.bottom) / self.height as f64;
+        let mut ray = Vector4::vec(0.0, 0.0 ,-self.near);
         for px_y in start_y..end_y{
             for px_x in 0..self.width{
                 let mut num_samples : f64 = 1.0;
                 let mut average_color = Vector4::vec(0.0, 0.0, 0.0);
 
                 let _print_check = false;
-                let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + 0.5) / self.width as f64);
-                let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + 0.5) / self.height as f64);
-                let ray = Vector4::vec(x,y, -self.near); //Ray directly in the center of pixel at (x,y).
+                let pixel_center_x = self.left + pixel_width * (px_x as f64 + 0.5);
+                let pixel_center_y = self.top - pixel_height * (px_y as f64 + 0.5);
+                ray.arr[0] = pixel_center_x;
+                ray.arr[1] = pixel_center_y;
                 let color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, _print_check);
                 average_color += &color;
 
                 for i in 0..extra_points{
                     let angle = 2.0 * std::f64::consts::PI * (i as f64 / extra_points as f64) + 0.25 * std::f64::consts::PI;
-                    let variance_x = 0.5 + 0.65 * angle.cos();
-                    let variance_y = 0.5 + 0.65 * angle.sin();
-                    let x : f64 = self.left + (self.right - self.left) * ((px_x as f64 + variance_x) / self.width as f64);
-                    let y : f64 = self.top - (self.top - self.bottom) * ((px_y as f64 + variance_y) / self.height as f64);
 
-                    let ray = Vector4::vec(x, y, -self.near);
+                    let variance_x = 0.65 * angle.cos();
+                    let variance_y = 0.65 * angle.sin();
+                    ray.arr[0] =  pixel_center_x + pixel_width * variance_x; 
+                    ray.arr[1] =  pixel_center_y + pixel_height * variance_y;
                     let mut color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, _print_check);
                     color *= 0.7;
                     average_color += &color;
