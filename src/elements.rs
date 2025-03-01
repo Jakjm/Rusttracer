@@ -46,7 +46,6 @@ pub struct Cube{
     pos: Vector4,
     scale: Vector4,
     pub inv_matrix: Matrix4,
-    pub inv_transp: Matrix4,
     pub r_x: f64, 
     pub r_y: f64,
     pub r_z: f64,
@@ -126,7 +125,7 @@ impl Cube {
         let spec = lighting_values[2];
         let refl = lighting_values[3];
         let bright = lighting_values[4];
-        return Some(Self{pos, scale, inv_matrix, inv_transp, r_x, r_y, r_z, color, amb, diff, spec, refl, bright, normals});
+        return Some(Self{pos, scale, inv_matrix, r_x, r_y, r_z, color, amb, diff, spec, refl, bright, normals});
     }
 }
 pub struct Sphere{
