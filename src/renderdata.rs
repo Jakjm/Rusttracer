@@ -103,8 +103,7 @@ impl RenderData{
             dot /= shadow_ray_len;
             //println!("{dot} {shadow_ray_len} {normal}");
             let mut diff_color = light.intensity.clone();
-            diff_color *= dot;
-            diff_color *= diff;
+            diff_color *= dot * diff;
             diff_color *= shape_color;
             color += &diff_color; //Computed and added diffuse light
 
@@ -113,7 +112,7 @@ impl RenderData{
             let mut bounce = normal.clone();
             bounce *= dot;
 
-            let mut ref_ray = shadow_ray.clone(); //Calculating reflection of shadow ray off shape
+            let mut ref_ray = shadow_ray; //Calculating reflection of shadow ray off shape
             ref_ray -= &bounce;
             
             let mut shininess = -ray.dot(&ref_ray);
@@ -123,8 +122,7 @@ impl RenderData{
                 shininess = shininess.powf(bright);
 
                 let mut spec_color = light.intensity.clone();
-                spec_color *= shininess;
-                spec_color *= spec;
+                spec_color *= shininess * spec;
                 color += &spec_color;
             }
         }
@@ -163,16 +161,12 @@ impl RenderData{
         let mut ray = Vector4::vec(0.0, 0.0 ,-self.near);
         for px_y in start_y..end_y{
             for px_x in 0..self.width{
-                let mut num_samples : f64 = 1.0;
-                let mut average_color = Vector4::vec(0.0, 0.0, 0.0);
-
                 let _print_check = false;
                 let pixel_center_x = self.left + pixel_width * (px_x as f64 + 0.5);
                 let pixel_center_y = self.top - pixel_height * (px_y as f64 + 0.5);
                 ray.arr[0] = pixel_center_x;
                 ray.arr[1] = pixel_center_y;
-                let color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, _print_check);
-                average_color += &color;
+                let mut average_color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, _print_check);
 
                 for i in 0..extra_points{
                     let angle = 2.0 * std::f64::consts::PI * (i as f64 / extra_points as f64) + 0.25 * std::f64::consts::PI;
@@ -181,14 +175,11 @@ impl RenderData{
                     let variance_y = 0.65 * angle.sin();
                     ray.arr[0] =  pixel_center_x + pixel_width * variance_x; 
                     ray.arr[1] =  pixel_center_y + pixel_height * variance_y;
-                    let mut color = self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, _print_check);
-                    color *= 0.7;
-                    average_color += &color;
-                    num_samples += 0.7;
+                    average_color += &self.traceray(&eye, &ray, 1.0000001, NUM_BOUNCES, _print_check);
 
                 }
 
-                average_color /= num_samples;
+                average_color /= extra_points as f64;
                 let index: usize = 3 * ((px_y - start_y) * self.width + px_x) as usize;
                 let (red, green, blue) = average_color.to_rgb();
                 slice[index] = red;
