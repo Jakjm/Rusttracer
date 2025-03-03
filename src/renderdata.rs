@@ -103,8 +103,7 @@ impl RenderData{
             dot /= shadow_ray_len;
             //println!("{dot} {shadow_ray_len} {normal}");
             let mut diff_color = light.intensity.clone();
-            diff_color *= dot;
-            diff_color *= diff;
+            diff_color *= dot * diff;
             diff_color *= shape_color;
             color += &diff_color; //Computed and added diffuse light
 
@@ -113,7 +112,7 @@ impl RenderData{
             let mut bounce = normal.clone();
             bounce *= dot;
 
-            let mut ref_ray = shadow_ray.clone(); //Calculating reflection of shadow ray off shape
+            let mut ref_ray = shadow_ray; //Calculating reflection of shadow ray off shape
             ref_ray -= &bounce;
             
             let mut shininess = -ray.dot(&ref_ray);
@@ -123,8 +122,7 @@ impl RenderData{
                 shininess = shininess.powf(bright);
 
                 let mut spec_color = light.intensity.clone();
-                spec_color *= shininess;
-                spec_color *= spec;
+                spec_color *= shininess * spec;
                 color += &spec_color;
             }
         }
