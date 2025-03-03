@@ -115,7 +115,7 @@ impl Cube {
         let mut normals : [Vector4; 6] = [Vector4::zero(); 6];
         for (normal, normal_prime) in normals.iter_mut().zip(CUBE_NORMAL_PRIMES.iter()){
             let mut new_vec = &inv_transp * normal_prime;
-            new_vec.force_point();
+            new_vec.force_vec();
             *normal = new_vec;
         }
 
@@ -218,8 +218,9 @@ impl Shape for Cube{
         let mut col_data = None;
 
         for i in 0..6{
-            let ray_proj = ray_prime.dot(&CUBE_NORMAL_PRIMES[i]);
-            let origin_proj = origin_prime.dot(&CUBE_NORMAL_PRIMES[i]);
+            let normal_prime = &CUBE_NORMAL_PRIMES[i];
+            let ray_proj = ray_prime.dot(normal_prime);
+            let origin_proj = origin_prime.dot(normal_prime);
             let surface_proj = 1.0;
             let distance = surface_proj - origin_proj;
 
