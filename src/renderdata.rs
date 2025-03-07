@@ -17,8 +17,8 @@ pub struct RenderData{
     right: f64,
     bottom: f64,
     top: f64,
-    width: u32, 
-    height: u32,
+    width: usize, 
+    height: usize,
     spheres: Vec<Sphere>,
     cubes: Vec<Cube>,
     lights: Vec<Light>,
@@ -30,13 +30,13 @@ pub struct RenderData{
 const NUM_BOUNCES : i32 = 3;
 impl RenderData{
     pub fn save_image(&self, raw_pixels: Vec<u8>) -> std::io::Result<()>{
-        let rgb_image = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_vec(self.width, self.height, raw_pixels).unwrap();
+        let rgb_image = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_vec(self.width as u32, self.height as u32, raw_pixels).unwrap();
 
         let ppm_path = Path::new(&self.output_ppm_file);
         let ppm_file = File::create(ppm_path)?;
         let ppm_writer = BufWriter::new(ppm_file);
         let pnm_encoder = PnmEncoder::new(ppm_writer).with_subtype(PnmSubtype::Pixmap(SampleEncoding::Binary));
-        if pnm_encoder.write_image(&rgb_image, self.width, self.height, image::ExtendedColorType::Rgb8).is_err() {
+        if pnm_encoder.write_image(&rgb_image, self.width as u32, self.height as u32, image::ExtendedColorType::Rgb8).is_err() {
             return Err(Error::new(ErrorKind::Other, format!("Error when writing png file.")));
         }
         //Originally used the following according to this specification:
@@ -50,7 +50,7 @@ impl RenderData{
         let png_file = File::create(png_path)?;
         let png_writer = BufWriter::new(png_file);
         let png_encoder = PngEncoder::new(png_writer);
-        if png_encoder.write_image(&rgb_image, self.width, self.height, image::ExtendedColorType::Rgb8).is_err() {
+        if png_encoder.write_image(&rgb_image, self.width as u32, self.height as u32, image::ExtendedColorType::Rgb8).is_err() {
             return Err(Error::new(ErrorKind::Other, format!("Error when writing png file.")));
         }
 
@@ -154,7 +154,7 @@ impl RenderData{
         };
         return color;
     }
-    pub fn render_slice(&self, slice: &mut [u8], start_y: u32, end_y: u32, extra_points : u32){
+    pub fn render_slice(&self, slice: &mut [u8], start_y: usize, end_y: usize, extra_points : u32){
         let eye = Vector4::point(0.0,0.0,0.0);
         let pixel_width = (self.right - self.left) / self.width as f64;
         let pixel_height = (self.top - self.bottom) / self.height as f64;
@@ -195,32 +195,35 @@ impl RenderData{
             }
         }
     }
-    fn split_into_equal_chunks<T>(mut vec: &mut [T], n: usize) -> Vec<&mut [T]>{
-        let chunk_size = vec.len() / n;
+    fn split_into_equal_chunks<T>(mut vec: &mut [T], n: usize, ensure_multiple : usize) -> (usize, Vec<&mut [T]>){
+        let len : usize = vec.len();
+        let chunk_size = ensure_multiple * (len / (ensure_multiple * n));
 
         let mut result = Vec::<&mut [T]>::with_capacity(n);
         for _i in 0..(n - 1){
             let (left, right) = vec.split_at_mut(chunk_size);
+            let len = left.len();
             result.push(left);
             vec = right;
         }
+        let len = vec.len();
         result.push(vec);
-        return result;
+        return (chunk_size, result);
     }
     pub fn render(&self, extra_points: u32, thread_count: usize) -> Vec<u8>{
-        let frac = self.height / thread_count as u32;
         let capacity: usize = (3 * self.width * self.height) as usize;
         let mut array = Vec::<u8>::with_capacity(capacity);
         unsafe{
             array.set_len(capacity);
         }
-        let mut chunks = Self::split_into_equal_chunks(&mut array, thread_count);
+        let (chunk_size, mut chunks) = Self::split_into_equal_chunks(&mut array, thread_count, 3 * self.width);
+        let frac = chunk_size / (3 * self.width);
         let _ = scope(|s| {
             let mut handles = Vec::with_capacity(thread_count - 1);
             let mut iter = chunks.iter_mut();
             for t in 0..(thread_count - 1) {
-                let start_y : u32 = t as u32 * frac;
-                let end_y : u32  = start_y + frac;
+                let start_y =  t * frac;
+                let end_y = start_y + frac;
                 let slice = iter.next().unwrap();
                 let handle = s.spawn(move |_| {
                     self.render_slice(slice, start_y, end_y, extra_points);
@@ -228,7 +231,7 @@ impl RenderData{
                 handles.push(handle);
             }
             let slice = iter.next().unwrap();
-            self.render_slice(slice, (thread_count as u32 - 1) * frac, self.height, extra_points);
+            self.render_slice(slice, thread_count * frac, self.height, extra_points);
             for handle in handles{
                 let _result = handle.join();
             }
@@ -236,13 +239,13 @@ impl RenderData{
         return array;
     }
     //TODO replace with detailed error messages....
-    pub fn read_resolution(tokens: &Vec<&str>) -> Option<(u32, u32)>{
+    pub fn read_resolution(tokens: &Vec<&str>) -> Option<(usize, usize)>{
         if tokens.len() != 3 {
             return None;
         }
 
-        let width_res = tokens[1].to_string().trim().parse::<u32>();
-        let height_res = tokens[2].to_string().trim().parse::<u32>();
+        let width_res = tokens[1].to_string().trim().parse::<usize>();
+        let height_res = tokens[2].to_string().trim().parse::<usize>();
         if width_res.is_err() || height_res.is_err(){
             return None;
         }
@@ -286,7 +289,7 @@ impl RenderData{
         let mut lights = Vec::<Light>::new();
 
         let (mut near, mut left, mut right, mut bottom, mut top) = (None, None, None, None, None);
-        let mut resolution : Option<(u32, u32)> = None; 
+        let mut resolution : Option<(usize, usize)> = None; 
         let mut amb_color: Option<Vector4> = None;
         let mut back_color: Option<Vector4> = None;
         let mut output_file: Option<String> = None;
@@ -371,7 +374,7 @@ impl RenderData{
         }
         
         let (near, left, right, bottom, top) = (near.unwrap_or(1.0), left.unwrap_or(-1.0), right.unwrap_or(1.0), bottom.unwrap_or(-1.0), top.unwrap_or(1.0));
-        let (width, height) : (u32, u32) = resolution.unwrap_or((800, 600));
+        let (width, height) : (usize, usize) = resolution.unwrap_or((800, 600));
         let (back_color, amb_color) : (Vector4, Vector4) = (back_color.unwrap_or(Vector4::vec(1.0, 1.0, 1.0)), amb_color.unwrap_or(Vector4::vec(1.0, 1.0, 1.0)));
         let output_ppm_file = output_file.unwrap_or("output.ppm".to_string());
         let output_png_file = output_ppm_file.trim_end_matches(".ppm").to_string() + ".png";

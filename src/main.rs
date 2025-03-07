@@ -7,7 +7,7 @@ mod elements;
 mod renderdata;
 use crate::renderdata::RenderData;
 
-
+const MAX_THREADS : usize = 255;
 fn test(){
 
     let matrix = Matrix4::scale(1.0,2.0,3.0);
@@ -50,8 +50,8 @@ fn parse_command_line_options(args: &[String]) -> Option<(&String, u32, usize)>{
                     return None;
                 },
                 Ok(num) => {
-                    if num == 0 || num > 512 {
-                        println!("Please enter a positive thread count that is at most 512.");
+                    if num == 0 || num > MAX_THREADS {
+                        println!("Please enter a positive thread count that is at most {MAX_THREADS}.");
                         return None;
                     }
                     Some(num)
