@@ -107,11 +107,11 @@ impl RenderData{
             diff_color *= shape_color;
             color += &diff_color; //Computed and added diffuse light
 
-            shadow_ray *= -1.0;
-            let dot = 2.0 * shadow_ray.dot(normal);
+            let dot = -2.0 * dot;
             let mut bounce = normal.clone();
             bounce *= dot;
 
+            shadow_ray *= -1.0;
             let mut ref_ray = shadow_ray; //Calculating reflection of shadow ray off shape
             ref_ray -= &bounce;
             

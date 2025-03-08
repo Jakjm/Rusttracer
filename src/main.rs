@@ -96,7 +96,6 @@ fn main() {
             return;
         }
     };
-
     match RenderData::read_from_file(filename){
         Ok(file_data) => {
             println!("{}", file_data);
