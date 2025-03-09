@@ -218,20 +218,22 @@ impl RenderData{
         }
         let (chunk_size, mut chunks) = Self::split_into_equal_chunks(&mut array, thread_count, 3 * self.width);
         let frac = chunk_size / (3 * self.width);
+        let mut start_y = 0;
+        let mut end_y = frac;
         let _ = scope(|s| {
             let mut handles = Vec::with_capacity(thread_count - 1);
             let mut iter = chunks.iter_mut();
             for t in 0..(thread_count - 1) {
-                let start_y =  t * frac;
-                let end_y = start_y + frac;
                 let slice = iter.next().unwrap();
                 let handle = s.spawn(move |_| {
                     self.render_slice(slice, start_y, end_y, extra_points);
                 });
                 handles.push(handle);
+                start_y = end_y;
+                end_y += frac;
             }
             let slice = iter.next().unwrap();
-            self.render_slice(slice, thread_count * frac, self.height, extra_points);
+            self.render_slice(slice, start_y, self.height, extra_points);
             for handle in handles{
                 let _result = handle.join();
             }
