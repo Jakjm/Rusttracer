@@ -94,25 +94,24 @@ impl RenderData{
             let mut shadow_ray = light.pos.clone();
             shadow_ray -= col_pt;
 
-            let mut dot = shadow_ray.dot(normal);
+            let dot = shadow_ray.dot(normal);
             if dot < 0.0 || self.check_collisions(col_pt, &shadow_ray, 0.000000001, 1.0, false).is_some()  {
                 continue;
             }
 
             let shadow_ray_len = shadow_ray.dot(&shadow_ray).sqrt();
-            dot /= shadow_ray_len;
-            //println!("{dot} {shadow_ray_len} {normal}");
+            
             let mut diff_color = light.intensity.clone();
-            diff_color *= dot * diff;
+            diff_color *= (dot * diff) / shadow_ray_len;
             diff_color *= shape_color;
             color += &diff_color; //Computed and added diffuse light
 
-            let dot = -2.0 * dot;
+            //Calculate the amount that the ray bounces off of surface.
             let mut bounce = normal.clone();
-            bounce *= dot;
+            bounce *= -2.0 * dot;
 
-            shadow_ray *= -1.0;
             let mut ref_ray = shadow_ray; //Calculating reflection of shadow ray off shape
+            ref_ray *= -1.0;
             ref_ray -= &bounce;
             
             let mut shininess = -ray.dot(&ref_ray);
@@ -123,6 +122,7 @@ impl RenderData{
 
                 let mut spec_color = light.intensity.clone();
                 spec_color *= shininess * spec;
+
                 color += &spec_color;
             }
         }
@@ -202,11 +202,11 @@ impl RenderData{
         let mut result = Vec::<&mut [T]>::with_capacity(n);
         for _i in 0..(n - 1){
             let (left, right) = vec.split_at_mut(chunk_size);
-            let len = left.len();
+            let _len = left.len();
             result.push(left);
             vec = right;
         }
-        let len = vec.len();
+        let _len = vec.len();
         result.push(vec);
         return (chunk_size, result);
     }
@@ -223,7 +223,7 @@ impl RenderData{
         let _ = scope(|s| {
             let mut handles = Vec::with_capacity(thread_count - 1);
             let mut iter = chunks.iter_mut();
-            for t in 0..(thread_count - 1) {
+            for _t in 0..(thread_count - 1) {
                 let slice = iter.next().unwrap();
                 let handle = s.spawn(move |_| {
                     self.render_slice(slice, start_y, end_y, extra_points);
