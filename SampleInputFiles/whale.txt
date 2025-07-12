@@ -17,4 +17,4 @@ LIGHT l4 0 5 0 0.5 0.5 0.5
 LIGHT l5 15 5 -15 0.3 0.3 0.8
 BACK 1 1 1
 AMBIENT 0.75 0.75 0.75
-OUTPUT whale.ppm
+OUTPUT SampleOutputFiles/whale.ppm
