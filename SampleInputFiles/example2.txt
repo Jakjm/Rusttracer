@@ -21,4 +21,4 @@ LIGHT l1 0 0 0 1 1 1
 #LIGHT l1 0 10 -25 0.3 0.3 0.3 
 BACK 0.6 0.6 0.95
 AMBIENT 0.2 0.2 0.2
-OUTPUT cube.ppm
+OUTPUT SampleOutputFiles/example2.ppm
