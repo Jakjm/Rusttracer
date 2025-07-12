@@ -3,7 +3,6 @@ use std::io;
 use std::io::{Error, ErrorKind};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter};
-//use std::io::{Write}
 use std::path::Path;
 use crate::matrix::Vector4;
 use crate::elements::{Shape, Cube, Sphere, Light};
