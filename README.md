@@ -6,8 +6,10 @@ Next, it calculates the colour of each pixel from the perspective of the point o
 eye, located at the origin (0,0,0), that is looking towards the negative Z axis.
 Finally, these colours are processed and written into .png and .ppm image files.
 
-![Example rendered image](SampleOutputFiles/example1.png) ![Example rendered image](SampleOutputFiles/example2.png)
-![Example rendered image](SampleOutputFiles/example3.png) ![Example rendered image](SampleOutputFiles/whale.png)
+![Example rendered image](SampleOutputFiles/example3.png)  | ![Example rendered image](SampleOutputFiles/whale.png)
+![Example rendered image](SampleOutputFiles/example2.png)
+![Example rendered image](SampleOutputFiles/example1.png) 
+
 
 You can compile the program using Cargo: 
 
