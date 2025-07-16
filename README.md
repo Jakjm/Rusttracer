@@ -8,9 +8,9 @@ Finally, these colours are processed and written into .png and .ppm image files.
 
 ![Example rendered image](SampleOutputFiles/example3.png)  | ![Example rendered image](SampleOutputFiles/whale.png)
 :-------------------------:|:-------------------------:
-![Example rendered image](SampleOutputFiles/example1.png)  | ![Example rendered image](OriginalOutputFiles/testSample.png)
+![Example rendered image](SampleOutputFiles/example2.png)  | ![Example rendered image](OriginalOutputFiles/testSample.png)
 
-![Example rendered image](SampleOutputFiles/example2.png)
+![Example rendered image](SampleOutputFiles/example1.png)
 
 
 You can compile the program using Cargo: 
