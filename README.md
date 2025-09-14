@@ -6,13 +6,15 @@ Next, it calculates the colour of each pixel from the perspective of the point o
 eye, located at the origin (0,0,0), that is looking towards the negative Z axis.
 Finally, these colours are processed and written into .png and .ppm image files.
 
-![Example rendered image](SampleOutputFiles/example3.png)  | ![Example rendered image](SampleOutputFiles/whale.png)
-:-------------------------:|:-------------------------:
-![Example rendered image](SampleOutputFiles/example2.png)  | ![Example rendered image](OriginalOutputFiles/testSample.png)
-:-------------------------:|:-------------------------:
-![Example rendered image](SampleOutputFiles/example1.png) | ![Example rendered image](SampleOutputFiles/tetra.png)
-:-------------------------:|:-------------------------:
-![Example rendered image](SampleOutputFiles/cube.png) | ![Example rendered image](SampleOutputFiles/doda.png)
+| | |
+|:---:|:---:|
+| ![Example 1](SampleOutputFiles/example3.png) | ![Example 2](SampleOutputFiles/whale.png) |
+| ![Example 3](SampleOutputFiles/example2.png) | ![Example 4](OriginalOutputFiles/testSample.png) |
+
+| | |
+|:---:|:---:|
+| ![Example 5](SampleOutputFiles/example1.png) | ![Example 6](SampleOutputFiles/tetra.png) |
+| ![Example 7](SampleOutputFiles/cube.png) | ![Example 8](SampleOutputFiles/doda.png) |
 
 
 
