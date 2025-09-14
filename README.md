@@ -10,7 +10,11 @@ Finally, these colours are processed and written into .png and .ppm image files.
 :-------------------------:|:-------------------------:
 ![Example rendered image](SampleOutputFiles/example2.png)  | ![Example rendered image](OriginalOutputFiles/testSample.png)
 
-![Example rendered image](SampleOutputFiles/example1.png)
+![Example rendered image](SampleOutputFiles/example1.png) | ![Example rendered image](SampleOutputFiles/tetra.png)
+
+![Example rendered image](SampleOutputFiles/cube.png) | ![Example rendered image](SampleOutputFiles/doda.png)
+
+
 
 
 You can compile the program using Cargo: 
@@ -73,13 +77,14 @@ The rendered image will be stored in .ppm format at the path specified by *filen
 This format is not very space efficient as it stores the colour of every single pixel without compression.
 Thus an additional .png image (which is more space efficient) will be created at the same path with the last three characters replaced by png.
 
-The description file may contain any number of lines that describe lights, spheres and cubes.
+The description file may contain any number of lines that describe lights, spheres, tetrahedrons, dodecahedrons and cubes.
 A line describing a light is as follows:
 
 	LIGHT name x y z r g b 
 
 The light is located at (*x*,*y*,*z*) in the scene. The values of *r*, *g*, and *b*
-are between 0 and 1 and give the colour of the light in red, green and blue respectively. The value of *name* for lights, spheres and cubes is meant to be a label which could be used for debugging in the future but it is not currently used.
+are between 0 and 1 and give the colour of the light in red, green and blue respectively. The value of *name* for lights
+and shapes is meant to be a label which could be used for debugging in the future but it is not currently used.
 
 A line describing a sphere is as follows:
 
@@ -103,11 +108,13 @@ In each case 0.0 indicates no contribution whereas 1.0 indicates a complete cont
 
 The "shininess" of the sphere is given by the value *n* which is at least 1. Higher values of *n* will **reduce** the amount of specular light the sphere gives off.
 	
-A line describing a cube is very similar, with the semantics of the parameters being the same 
+A line describing a cube, tetrahedron or dodecahedron is very similar, with the semantics of the parameters being the same 
 as those for spheres. By default, the cube has edge lengths of 1.0 and is centered around the 
 point (*x*,*y*,*z*).
 	
 	CUBE name  x  y  z  sX  sY  sZ rX rY rZ r g b kA kD kS kR n
+	TETRA name  x  y  z  sX  sY  sZ rX rY rZ r g b kA kD kS kR n
+	DODA name  x  y  z  sX  sY  sZ rX rY rZ r g b kA kD kS kR n
 
 
 	

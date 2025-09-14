@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader, BufWriter};
 use std::path::Path;
 use crate::matrix::Vector4;
 use crate::shape::{LightingProps,Shape};
-use crate::elements::{Cube, Sphere, Tetrahedron, Light};
+use crate::elements::{Cube, Sphere, Tetrahedron, Dodecahedron, Light};
 use image::codecs::pnm::{PnmEncoder, PnmSubtype, SampleEncoding};
 use image::codecs::png::PngEncoder;
 use image::{ImageEncoder, Rgb};
@@ -21,6 +21,7 @@ pub struct RenderData{
     height: usize,
     spheres: Vec<Sphere>,
     tetras: Vec<Tetrahedron>,
+    dodas: Vec<Dodecahedron>,
     cubes: Vec<Cube>,
     lights: Vec<Light>,
     back_color: Vector4,
@@ -76,6 +77,12 @@ impl RenderData{
         for tetra in self.tetras.iter(){
             if let Some((t, col_pt, normal)) = tetra.check_collision(origin, ray, min, lowest){
                 col_data = Some((tetra as &dyn Shape, col_pt, normal));
+                lowest = t;
+            }
+        }
+        for doda in self.dodas.iter(){
+            if let Some((t, col_pt, normal)) = doda.check_collision(origin, ray, min, lowest){
+                col_data = Some((doda as &dyn Shape, col_pt, normal));
                 lowest = t;
             }
         }
@@ -292,6 +299,7 @@ impl RenderData{
         let mut spheres = Vec::<Sphere>::new();
         let mut cubes = Vec::<Cube>::new();
         let mut tetras = Vec::<Tetrahedron>::new();
+        let mut dodas = Vec::<Dodecahedron>::new();
         let mut lights = Vec::<Light>::new();
 
         let (mut near, mut left, mut right, mut bottom, mut top) = (None, None, None, None, None);
@@ -322,6 +330,12 @@ impl RenderData{
                     match Tetrahedron::read_from_tokens(&tokens) {
                         None => return Err(Error::new(ErrorKind::Other, format!("Could not read tetrahedron from {line}."))),
                         Some(tetra) => tetras.push(tetra),
+                    }
+                },
+                "DODA" => {
+                    match Dodecahedron::read_from_tokens(&tokens) {
+                        None => return Err(Error::new(ErrorKind::Other, format!("Could not read tetrahedron from {line}."))),
+                        Some(doda) => dodas.push(doda),
                     }
                 },
                 "LIGHT" => {
@@ -392,7 +406,7 @@ impl RenderData{
         let output_png_file = output_ppm_file.trim_end_matches(".ppm").to_string() + ".png";
         
         let result = Self{near, left, right, bottom, top, width, height, 
-            spheres, tetras, cubes, lights, back_color, amb_color, output_ppm_file, output_png_file};
+            spheres, tetras, dodas, cubes, lights, back_color, amb_color, output_ppm_file, output_png_file};
         return Ok(result);
     }
 }
