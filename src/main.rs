@@ -1,6 +1,8 @@
 use std::env;
 
 mod matrix;
+mod polygon;
+mod shape;
 use crate::matrix::Matrix4;
 mod elements;
 

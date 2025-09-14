@@ -172,15 +172,6 @@ impl Vector4{
     pub fn z(&self) -> f64{
         return self.arr[2];
     }
-    pub fn force_vec(&mut self){
-        self.arr[3] = 0.0;
-    }
-    pub fn force_point(&mut self){
-        self.arr[3] = 1.0;
-    }
-    pub fn dot(&self, other: &Vector4) -> f64{
-        return self.x() * other.x() + self.y() * other.y() + self.z() * other.z();
-    }
     pub fn zero() -> Self{
         return Self{arr: [0.0; 4]};
     }
@@ -196,6 +187,39 @@ impl Vector4{
     pub const fn vec(x: f64, y: f64, z:f64) -> Self {
         return Self{arr:[x,y,z,0.0]};
     }
+    pub fn force_vec(&mut self){
+        self.arr[3] = 0.0;
+    }
+    pub fn force_point(&mut self){
+        self.arr[3] = 1.0;
+    }
+    pub fn apply_inv_transpose(&self, inv_transp: &Matrix4) -> Self{
+        let mut result = inv_transp * self;
+        result.force_vec();
+        return result;
+    }
+    pub fn dot(&self, other: &Vector4) -> f64{
+        return self.x() * other.x() + self.y() * other.y() + self.z() * other.z();
+    }
+    pub fn len_sq(&self) -> f64{
+        return self.dot(self);
+    }
+    pub fn len(&self) -> f64{
+        return f64::sqrt(self.len_sq());
+    }
+    pub fn normalize(&mut self){
+        let inv_len = 1.0 / self.len();
+        self.arr[0] *= inv_len;
+        self.arr[1] *= inv_len;
+        self.arr[2] *= inv_len;
+    }
+    pub fn cross(&self, other: &Vector4) -> Vector4{
+        let x: f64 = self.y() * other.z() - self.z() * other.y();
+        let y: f64 = self.z() * other.x() - self.x() * other.z();
+        let z: f64 = self.x() * other.y() - self.y() * other.x();
+        return Self::vec(x,y,z);
+    }
+    
     pub fn to_rgb(&self) -> (u8, u8, u8){
         let (red, green, blue) = (self.arr[0], self.arr[1], self.arr[2]);
         let red = (255.0 * red.clamp(0.0, 1.0)) as u8;
